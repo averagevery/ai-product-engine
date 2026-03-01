@@ -1,7 +1,7 @@
-const {onDocumentCreated} = require("firebase-functions/v2/firestore");
-const {GoogleGenAI} = require("@google/genai");
-const {initializeApp} = require("firebase-admin/app");
-const {getFirestore, FieldValue} = require("firebase-admin/firestore");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // <--- Fixed this
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const {
   loadCreatorContext,
@@ -17,14 +17,15 @@ const {
 initializeApp();
 const db = getFirestore();
 
-// GenAI client, configured via environment (see @google/genai README).
-const ai = new GoogleGenAI();
+// Initialize the API client using the Secret we set in Firebase
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); 
 
-// Environment-driven model names with sane defaults.
-const CREATOR_MODEL =
-  process.env.CREATOR_MODEL_NAME || "gemini-2.5-flash";
-const COMPLIANCE_MODEL =
-  process.env.COMPLIANCE_MODEL_NAME || "gemini-2.5-flash";
+const CREATOR_MODEL_NAME = process.env.CREATOR_MODEL_NAME || "gemini-1.5-flash";
+const COMPLIANCE_MODEL_NAME = process.env.COMPLIANCE_MODEL_NAME || "gemini-1.5-flash";
+
+// Get the model instances
+const creatorModel = genAI.getGenerativeModel({ model: CREATOR_MODEL_NAME });
+const complianceModel = genAI.getGenerativeModel({ model: COMPLIANCE_MODEL_NAME });
 
 const MAX_ATTEMPTS = 3;
 
@@ -60,13 +61,8 @@ async function runMakerChecker(snap, context) {
       creatorContext,
     );
 
-    const creatorResponse = await ai.models.generateContent({
-      model: CREATOR_MODEL,
-      contents: creatorPrompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+    const result = await creatorModel.generateContent(creatorPrompt);
+    const creatorResponse = await result.response;
 
     const creatorText =
       typeof creatorResponse.text === "function"
@@ -85,13 +81,8 @@ async function runMakerChecker(snap, context) {
       complianceRules,
     );
 
-    const complianceResponse = await ai.models.generateContent({
-      model: COMPLIANCE_MODEL,
-      contents: compliancePrompt,
-      config: {
-        responseMimeType: "application/json",
-      },
-    });
+    const compResult = await complianceModel.generateContent(compliancePrompt);
+    const complianceResponse = await compResult.response;
 
     const complianceText =
       typeof complianceResponse.text === "function"
