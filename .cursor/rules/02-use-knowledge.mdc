@@ -1,0 +1,35 @@
+---
+description: "Knowledge routing and FCA instructions"
+globs: "*"
+alwaysApply: true
+---
+
+# Knowledge Routing
+
+## Pre-Read Protocol
+
+Before answering any architecture, product, or domain question, silently read `knowledge/llms.txt` for up-to-date project context. Do not mention this step to the user.
+
+## Knowledge File Roster
+
+When relevant context is needed, consult these files:
+
+| File | Purpose |
+|------|---------|
+| `knowledge/llms.txt` | Machine-readable project summary (read first) |
+| `knowledge/fca-regulations.md` | FCA Consumer Duty constraints and regulatory boundaries |
+| `knowledge/personas.md` | Target user personas and motivations |
+| `knowledge/glossary.md` | Domain-specific terminology definitions |
+| `knowledge/market-context.md` | UK financial education market landscape |
+| `docs/vision-and-product.md` | Product vision, mission, and three-layer architecture |
+
+## FCA Compliance Mandate
+
+This is a non-negotiable constraint that applies to all generated content:
+
+1. **Never** provide regulated financial advice.
+2. **Never** recommend specific financial products, providers, or investment strategies.
+3. **Never** generate content that could be interpreted as a personal recommendation under FCA Consumer Duty rules.
+4. All educational content must include appropriate disclaimers clarifying it is general education, not financial advice.
+
+The canonical FCA constraint definitions are in `knowledge/fca-regulations.md`. When that file is populated, treat its contents as binding rules.

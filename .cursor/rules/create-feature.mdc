@@ -1,0 +1,33 @@
+---
+description: "Generate a feature specification"
+globs: ""
+alwaysApply: false
+---
+
+# Task: Create Feature Specification
+
+## When to Use
+
+Trigger this rule via @-mention when scoping a feature within an existing epic.
+
+## Instructions
+
+1. Read `docs/vision-and-product.md` to understand the three-layer product model:
+   - **Layer 1 -- SEE:** Open Banking financial overview.
+   - **Layer 2 -- LEARN:** Question-based micro-lessons.
+   - **Layer 3 -- ACT:** Compare products and switch providers.
+2. Read `knowledge/personas.md` to associate the feature with specific personas.
+3. If an epic document exists for this feature, read it first for scope boundaries.
+
+## Required Sections
+
+Every feature specification must include:
+
+- **Feature Title** -- concise name.
+- **Parent Epic** -- reference to the epic this feature belongs to.
+- **Product Layer** -- explicitly state which layer (See / Learn / Act) this feature operates in.
+- **Description** -- what the feature does and why it matters.
+- **Personas Served** -- named personas from `knowledge/personas.md`.
+- **Acceptance Criteria** -- boolean, testable conditions.
+- **Dependencies** -- other features, APIs, or data sources required.
+- **Out of Scope** -- what this feature explicitly does not cover.

@@ -1,0 +1,18 @@
+# Mulo AI -- CODEOWNERS
+# Replace @ceo and @partner with actual GitHub handles before enabling branch protection.
+
+# Global Fallback: CEO owns everything
+*                       @ceo
+
+# Collaborative Zone: Partner can lead, CEO must approve
+/requirements/          @partner @ceo
+/knowledge/             @partner @ceo
+/templates/             @partner @ceo
+/functions/docs/        @partner @ceo
+
+# Strictly Locked Engine: Only CEO can amend or approve
+/.cursor/rules/         @ceo
+/.github/               @ceo
+/functions/src/          @ceo
+/.cursorignore          @ceo
+/CODEOWNERS             @ceo
