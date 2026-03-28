@@ -1,0 +1,34 @@
+---
+description: "Generate an AI agent specification"
+globs: ""
+alwaysApply: false
+---
+
+# Task: Create Agent Specification
+
+## When to Use
+
+Trigger this rule via @-mention when defining or documenting an AI agent's system prompt, behavioural rules, and output contract.
+
+## Instructions
+
+1. Read and use `templates/template-agent.md` as the document skeleton. Fill in every bracketed placeholder.
+2. Read `functions/docs/agent_architecture.md` for the canonical agent roster, Firestore schema, and Maker-Checker loop requirements.
+3. Read `knowledge/fca-regulations.md` to ensure guardrails include FCA compliance constraints.
+4. Save the completed document to `requirements/app/agents/`.
+
+## Naming Convention
+
+`AGENT-NNN-short-name.md` (e.g., `AGENT-001-creator.md`, `AGENT-002-compliance.md`)
+
+## AI Source Prompt
+
+Every generated document must retain the AI Source Prompt block at the top of the file, recording the prompt used, the date, and the rule name (`create-agent.mdc`).
+
+## Quality Checklist
+
+- The Agent Persona must have a clear name, role, and pipeline position.
+- Inputs must specify the exact data sources.
+- Strict Guardrails must include at least one FCA compliance constraint.
+- The JSON Output Contract must define every field with type and required status.
+- Error Handling must specify that failures log to `agent_logs` with a timestamp.

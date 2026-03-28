@@ -1,0 +1,33 @@
+---
+description: "Generate a content programme specification"
+globs: ""
+alwaysApply: false
+---
+
+# Task: Create Programme
+
+## When to Use
+
+Trigger this rule via @-mention when defining a high-level educational programme (a collection of related micro-lessons for a specific persona).
+
+## Instructions
+
+1. Read and use `templates/template-programme.md` as the document skeleton. Fill in every bracketed placeholder.
+2. Read `knowledge/personas.md` to select a specific target persona by name.
+3. Read `docs/vision-and-product.md` to align the programme with the See -> Learn -> Act model.
+4. Save the completed document to `requirements/content/programmes/`.
+
+## Naming Convention
+
+`PROG-NNN-short-name.md` (e.g., `PROG-001-lisa-education.md`)
+
+## AI Source Prompt
+
+Every generated document must retain the AI Source Prompt block at the top of the file, recording the prompt used, the date, and the rule name (`create-programme.mdc`).
+
+## Quality Checklist
+
+- The Target Persona must reference an entry from `knowledge/personas.md` by name.
+- The Lessons table must list at least 3 lessons with IDs.
+- Success Criteria must be boolean and measurable.
+- The ATMI Connection section must describe the Layer 3 (Act) follow-through.

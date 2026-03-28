@@ -1,0 +1,42 @@
+---
+description: "Generate a micro-lesson specification"
+globs: ""
+alwaysApply: false
+---
+
+# Task: Create Lesson
+
+## When to Use
+
+Trigger this rule via @-mention when specifying an individual 3-screen micro-lesson for the Mulo platform.
+
+## Instructions
+
+1. Read and use `templates/template-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
+2. Read `knowledge/personas.md` for the target persona context.
+3. Reference `functions/docs/agent_architecture.md` for the Firestore schema (the `lessons` and `screens` collections).
+4. Save the completed document to `requirements/content/lessons/`.
+
+## Naming Convention
+
+`LESSON-NNN-short-name.md` (e.g., `LESSON-001-lisa-penalty-rules.md`)
+
+## AI Source Prompt
+
+Every generated document must retain the AI Source Prompt block at the top of the file, recording the prompt used, the date, and the rule name (`create-lesson.mdc`).
+
+## Content Constraints
+
+All content must comply with the design system (`.cursor/rules/03-design-system.mdc`):
+
+- Headlines: max 7 words
+- Body text: max 25 words
+- Feedback text: max 15 words
+- Lottie motifs: only approved motifs (bank building, piggy bank, shield, coins, graduation cap, growth chart)
+- Banned: `$` symbol, red effects, currency iconography
+
+## Compliance
+
+- Every lesson must include an FCA disclaimer.
+- Content must never constitute regulated financial advice.
+- Content must use strict UK English spelling.

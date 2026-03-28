@@ -1,0 +1,72 @@
+# Mulo AI -- Project Map for AI Agents
+# Read this file first before answering any architecture or product question.
+
+## Mission
+Help millions of people in the UK make better financial decisions through simple, personalised education.
+
+## Product Model: See -> Learn -> Act
+- Layer 1 (SEE): Open Banking financial overview.
+- Layer 2 (LEARN): 3-screen micro-lessons, 30-60s each.
+- Layer 3 (ACT): Compare products and switch providers. Mulo earns referral commissions.
+
+## Repository Layout
+
+### requirements/ -- Product Specifications
+- requirements/content/programmes/ -- Educational programme definitions (PROG-NNN-name.md). Template: templates/template-programme.md. Rule: create-programme.mdc.
+- requirements/content/lessons/ -- Individual micro-lesson specs (LESSON-NNN-name.md). Template: templates/template-lesson.md. Rule: create-lesson.mdc.
+- requirements/app/features/ -- App UX/UI feature specs (FEAT-NNN-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
+- requirements/app/agents/ -- AI agent specifications (AGENT-NNN-name.md). Template: templates/template-agent.md. Rule: create-agent.mdc.
+
+### knowledge/ -- Fact Base (manually curated)
+- knowledge/personas.md -- Five target personas: Sarah, James, Aisha, Tom, Chloe.
+- knowledge/fca-regulations.md -- FCA Consumer Duty compliance boundaries.
+- knowledge/glossary.md -- Domain-specific terminology.
+- knowledge/market-context.md -- UK financial education market landscape.
+- knowledge/llms.txt -- This file. Machine-readable project summary.
+
+### docs/ -- Project Documentation
+- docs/vision-and-product.md -- Product vision, mission, and 3-layer architecture.
+
+### functions/ -- Backend Engine (PROTECTED, read-only for AI)
+- functions/src/ -- Cloud Function execution logic (Maker-Checker loop).
+- functions/prompts/ -- Gemini AI agent prompt definitions.
+- functions/docs/ -- Agent behavioural rules, compliance documents, design guidelines.
+
+### templates/ -- Document Templates
+- templates/template-programme.md -- Programme specification template.
+- templates/template-lesson.md -- Micro-lesson specification template.
+- templates/template-feature.md -- App feature specification template.
+- templates/template-agent.md -- Agent specification template.
+- templates/template-atmi.md -- Apply to My Money insight card template.
+- templates/template-epic.md -- (Legacy) Epic definition template.
+- templates/template-service-blueprint.md -- (Legacy) Service blueprint template.
+- templates/template-story.md -- (Legacy) User story template.
+
+### .cursor/rules/ -- AI Instruction Layer
+- 01-repo-standards.mdc -- Global standards, GitOps, UK English, europe-west2.
+- 02-use-knowledge.mdc -- Knowledge routing, FCA compliance mandate.
+- 03-design-system.mdc -- Colours, typography, word limits, Lottie constraints.
+- 04-folder-integrity.mdc -- Strict folder structure enforcement.
+- create-programme.mdc -- Generate programme specs.
+- create-lesson.mdc -- Generate lesson specs.
+- create-feature.mdc -- Generate feature specs.
+- create-agent.mdc -- Generate agent specs.
+- create-api-spec.mdc -- Generate RESTful API specs.
+
+### .github/skills/ -- GitHub Copilot Agent Skills
+Each skill mirrors a corresponding .cursor/rules/ file.
+
+## Core Architecture: 9-Agent Maker-Checker Loop
+1. Creator Agent drafts content as structured JSON.
+2. Compliance Agent validates against FCA rules in a while loop.
+3. Only "status": "PASS" allows a Firestore write.
+4. Every write includes compliance_audit field with reasoning and timestamp.
+5. Failed drafts logged to agent_logs collection.
+
+## Non-Negotiable Constraints
+- Deployment region: europe-west2 (London).
+- Language: Strict UK English.
+- FCA: Never provide regulated financial advice.
+- Design: Background #0A0A1A, Primary #3733E5, CTA mint green, DM Sans font.
+- Word limits: Headlines 7, Body 25, Feedback 15.
+- All generated documents must include an AI Source Prompt block at the top.

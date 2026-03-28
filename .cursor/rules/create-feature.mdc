@@ -1,33 +1,34 @@
 ---
-description: "Generate a feature specification"
+description: "Generate an app feature specification"
 globs: ""
 alwaysApply: false
 ---
 
-# Task: Create Feature Specification
+# Task: Create Feature
 
 ## When to Use
 
-Trigger this rule via @-mention when scoping a feature within an existing epic.
+Trigger this rule via @-mention when specifying a UX/UI feature or app logic component for the Mulo platform.
 
 ## Instructions
 
-1. Read `docs/vision-and-product.md` to understand the three-layer product model:
-   - **Layer 1 -- SEE:** Open Banking financial overview.
-   - **Layer 2 -- LEARN:** Question-based micro-lessons.
-   - **Layer 3 -- ACT:** Compare products and switch providers.
-2. Read `knowledge/personas.md` to associate the feature with specific personas.
-3. If an epic document exists for this feature, read it first for scope boundaries.
+1. Read and use `templates/template-feature.md` as the document skeleton. Fill in every bracketed placeholder.
+2. Read `docs/vision-and-product.md` to identify which product layer (See / Learn / Act) this feature belongs to.
+3. Read `knowledge/personas.md` to associate the feature with specific personas.
+4. Reference `.cursor/rules/03-design-system.mdc` for UI layout constraints.
+5. Save the completed document to `requirements/app/features/`.
 
-## Required Sections
+## Naming Convention
 
-Every feature specification must include:
+`FEAT-NNN-short-name.md` (e.g., `FEAT-001-open-banking-dashboard.md`)
 
-- **Feature Title** -- concise name.
-- **Parent Epic** -- reference to the epic this feature belongs to.
-- **Product Layer** -- explicitly state which layer (See / Learn / Act) this feature operates in.
-- **Description** -- what the feature does and why it matters.
-- **Personas Served** -- named personas from `knowledge/personas.md`.
-- **Acceptance Criteria** -- boolean, testable conditions.
-- **Dependencies** -- other features, APIs, or data sources required.
-- **Out of Scope** -- what this feature explicitly does not cover.
+## AI Source Prompt
+
+Every generated document must retain the AI Source Prompt block at the top of the file, recording the prompt used, the date, and the rule name (`create-feature.mdc`).
+
+## Quality Checklist
+
+- The UX Flow must have clear entry and exit points.
+- UI Layout Constraints must reference the design system values.
+- Database Connections must specify collections, operations, and fields.
+- Acceptance Criteria must be boolean and testable.

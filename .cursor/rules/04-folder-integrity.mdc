@@ -14,15 +14,36 @@ You are **forbidden** from creating new files in the repository root directory. 
 
 | Content Type | Required Location | Examples |
 |-------------|-------------------|----------|
-| Product specs (epics, features, stories, blueprints) | `requirements/` | `requirements/epics/EPIC-001.md`, `requirements/stories/STORY-001.md` |
+| Content programmes | `requirements/content/programmes/` | `PROG-001-lisa-education.md` |
+| Micro-lesson specs | `requirements/content/lessons/` | `LESSON-001-lisa-penalty-rules.md` |
+| App feature specs | `requirements/app/features/` | `FEAT-001-open-banking-dashboard.md` |
+| Agent specifications | `requirements/app/agents/` | `AGENT-001-creator.md` |
 | Knowledge base files | `knowledge/` | `knowledge/personas.md`, `knowledge/glossary.md` |
 | Backend execution logic | `functions/src/` | `functions/src/maker_checker_loop.js` |
 | Agent prompt definitions | `functions/prompts/` | `functions/prompts/creator_agent.js` |
 | Agent behavioural rules | `functions/docs/` | `functions/docs/compliance_rules.md` |
 | Project-level documentation | `docs/` | `docs/vision-and-product.md` |
-| Document templates | `templates/` | `templates/template-epic.md` |
+| Document templates | `templates/` | `templates/template-lesson.md` |
 | Cursor AI rules | `.cursor/rules/` | `.cursor/rules/01-repo-standards.mdc` |
-| GitHub Copilot skills | `.github/skills/` | `.github/skills/create-story/SKILL.md` |
+| GitHub Copilot skills | `.github/skills/` | `.github/skills/create-lesson/SKILL.md` |
+
+## Requirements Domain Split
+
+The `requirements/` folder is split into two domains:
+
+### `requirements/content/` -- Curriculum Domain
+
+Managed by the content/product team. Contains educational programme and lesson specifications.
+
+- `requirements/content/programmes/` -- high-level programme definitions (PROG-NNN-name.md)
+- `requirements/content/lessons/` -- individual 3-screen micro-lesson specs (LESSON-NNN-name.md)
+
+### `requirements/app/` -- Engineering Domain
+
+Managed by the engineering team. Contains app features and AI agent specifications.
+
+- `requirements/app/features/` -- UX/UI feature specs with database connections (FEAT-NNN-name.md)
+- `requirements/app/agents/` -- AI agent persona, guardrails, and JSON output contracts (AGENT-NNN-name.md)
 
 ## Redirect Protocol
 
@@ -31,10 +52,3 @@ If a user requests file creation in an unauthorised location, do not comply. Ins
 1. Identify the correct subdirectory from the table above.
 2. Inform the user of the correct location.
 3. Offer to create the file in the correct location instead.
-
-## Subdirectory Structure for Requirements
-
-- `requirements/epics/` -- large initiative definitions (EPIC-NNN-name.md)
-- `requirements/features/` -- feature specifications scoped within epics
-- `requirements/stories/` -- individual user stories with boolean acceptance criteria (STORY-NNN-name.md)
-- `requirements/blueprints/` -- service blueprints mapping user journeys (BP-NNN-name.md)
