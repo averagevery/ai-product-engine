@@ -13,17 +13,17 @@ You are **forbidden** from creating new files in the repository root directory. 
 ## Mandatory File Locations
 
 | Content Type | Required Location | Examples |
-|-------------|-------------------|----------|
-| Content programmes | `requirements/content/programmes/` | `PROG-001-lisa-education.md` |
-| Micro-lesson specs | `requirements/content/lessons/` | `LESSON-001-lisa-penalty-rules.md` |
-| App feature specs | `requirements/app/features/` | `FEAT-001-open-banking-dashboard.md` |
-| Agent specifications | `requirements/app/agents/` | `AGENT-001-creator.md` |
+|----|----|----|
+| Content programmes | `requirements/content/programmes/{programme-name}/` | `requirements/content/programmes/lisa-savings/programme.md` |
+| Core lesson files | `requirements/content/programmes/{programme-name}/` | `requirements/content/programmes/lisa-savings/lisa-penalty-rules.md` |
+| App feature specs | `requirements/features/` | `debt-snowball-calculator.md` |
+| Agent behavioural rules | `functions/docs/` | `compliance_rules.md`, `design_guidelines.md` |
 | Knowledge base files | `knowledge/` | `knowledge/personas.md`, `knowledge/glossary.md` |
 | Backend execution logic | `functions/src/` | `functions/src/maker_checker_loop.js` |
 | Agent prompt definitions | `functions/prompts/` | `functions/prompts/creator_agent.js` |
-| Agent behavioural rules | `functions/docs/` | `functions/docs/compliance_rules.md` |
 | Project-level documentation | `docs/` | `docs/vision-and-product.md` |
 | Document templates | `templates/` | `templates/template-lesson.md` |
+| Utility scripts | `scripts/` | `scripts/sync_curriculum.js` |
 | Cursor AI rules | `.cursor/rules/` | `.cursor/rules/01-repo-standards.mdc` |
 | GitHub Copilot skills | `.github/skills/` | `.github/skills/create-lesson/SKILL.md` |
 
@@ -33,17 +33,17 @@ The `requirements/` folder is split into two domains:
 
 ### `requirements/content/` -- Curriculum Domain
 
-Managed by the content/product team. Contains educational programme and lesson specifications.
+Managed by the content/product team. Contains educational programmes and lessons.
 
-- `requirements/content/programmes/` -- high-level programme definitions (PROG-NNN-name.md)
-- `requirements/content/lessons/` -- individual 3-screen micro-lesson specs (LESSON-NNN-name.md)
+- `requirements/content/programmes/` -- each programme is a **folder** containing:
+  - `programme.md` -- programme metadata (YAML frontmatter, lesson table)
+  - `{lesson-name}.md` -- hand-crafted core lesson files (YAML frontmatter + `## Screen` headings). These are synced to Firestore `core_lessons` via `npm run sync-curriculum`.
 
-### `requirements/app/` -- Engineering Domain
+### `requirements/features/` -- Engineering Domain
 
-Managed by the engineering team. Contains app features and AI agent specifications.
+Managed by the engineering team. Contains app feature specifications (natural-language-name.md).
 
-- `requirements/app/features/` -- UX/UI feature specs with database connections (FEAT-NNN-name.md)
-- `requirements/app/agents/` -- AI agent persona, guardrails, and JSON output contracts (AGENT-NNN-name.md)
+**Note:** AI agent specifications live in `functions/docs/` (the single source of truth), not in `requirements/`. Editing a file in `functions/docs/` directly changes the agent's runtime behaviour.
 
 ## Redirect Protocol
 

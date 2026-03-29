@@ -1,20 +1,42 @@
 ---
 name: create-lesson
-description: "Generate a 3-screen micro-lesson specification with database frontmatter and compliance checks."
+description: "Generate a lesson editorial brief or a hand-crafted core lesson for the Mulo AI platform."
 ---
 
 # Create Lesson
 
 ## Instructions
 
-Use this skill when specifying an individual 3-screen micro-lesson for Mulo. Read `.cursor/rules/create-lesson.mdc` for the canonical Cursor rule this skill mirrors.
+Use this skill when specifying a lesson for Mulo. There are two lesson types. Read `.cursor/rules/create-lesson.mdc` for the canonical Cursor rule this skill mirrors.
 
-## Steps
+### Option A: Editorial Brief (for AI-generated `user_lessons`)
+
+Creates an **editorial brief** -- the input that defines what the lesson should teach. The Creator Agent generates the full 8-11 screen lesson via the Maker-Checker pipeline.
+
+### Option B: Core Lesson (for hand-crafted `core_lessons`)
+
+Creates a **complete screen-by-screen lesson** in markdown, synced to Firestore `core_lessons` via `npm run sync-curriculum`.
+
+## Steps -- Editorial Brief (Option A)
 
 1. Read and use `templates/template-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
 2. Read `knowledge/personas.md` for the target persona context.
-3. Reference `functions/docs/agent_architecture.md` for the Firestore schema (`lessons` and `screens` collections).
-4. Save the completed document to `requirements/content/lessons/` using the naming convention `LESSON-NNN-short-name.md`.
+3. Read `functions/docs/financial_standards.md` for the PISA financial pillars and topic boundaries.
+4. Read `functions/docs/lesson_guidelines.md` for screen flow, word limits, and the JSON output schema.
+5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons` and `screens` collections).
+6. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
+
+## Steps -- Core Lesson (Option B)
+
+1. Read and use `templates/template-core-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
+2. Read `knowledge/personas.md` for the target persona context.
+3. Read `functions/docs/financial_standards.md` for the PISA financial pillars.
+4. Each `## Screen N: Type` heading becomes a Firestore screen document with `lessonType: "core"`.
+5. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
+
+## Naming Convention
+
+Use a kebab-case slug: `{lesson-topic}.md` (e.g., `lisa-penalty-rules.md`). The file sits alongside `programme.md` in its programme folder.
 
 ## AI Source Prompt
 

@@ -1,34 +1,38 @@
 ---
-description: "Generate an AI agent specification"
-globs: ""
+description: "Create or update an AI agent's behavioural rules in functions/docs/"
 alwaysApply: false
 ---
-
-# Task: Create Agent Specification
+# Task: Create or Update Agent Rules
 
 ## When to Use
 
-Trigger this rule via @-mention when defining or documenting an AI agent's system prompt, behavioural rules, and output contract.
+Trigger this rule via @-mention when creating a new agent rule document or updating an existing one in `functions/docs/`. These files are loaded at runtime by the JS prompt builders in `functions/prompts/` and directly control agent behaviour.
 
 ## Instructions
 
-1. Read and use `templates/template-agent.md` as the document skeleton. Fill in every bracketed placeholder.
-2. Read `functions/docs/agent_architecture.md` for the canonical agent roster, Firestore schema, and Maker-Checker loop requirements.
-3. Read `knowledge/fca-regulations.md` to ensure guardrails include FCA compliance constraints.
-4. Save the completed document to `requirements/app/agents/`.
+1. Read `functions/docs/agent_architecture.md` for the canonical agent roster and Maker-Checker loop requirements.
+2. Read `knowledge/fca-regulations.md` to ensure the document includes FCA compliance constraints.
+3. If updating an existing file, read the current version first and preserve its structure.
+4. Save the document to `functions/docs/`.
+
+## Existing Agent Rule Files
+
+| File | Agent | Purpose |
+|------|-------|---------|
+| `functions/docs/compliance_rules.md` | Compliance Agent | FCA Consumer Duty validation rules |
+| `functions/docs/design_guidelines.md` | Design Agent | Visual asset prompting rules and constraints |
+| `functions/docs/telemetry_rules.md` | Telemetry Agent | Micro and macro data triggers |
+| `functions/docs/financial_standards.md` | Creator Agent | PISA financial literacy pillars and topic boundaries |
+| `functions/docs/lesson_guidelines.md` | Creator Agent | Mobile screen constraints, tone, and JSON output rules |
+| `functions/docs/agent_architecture.md` | All | System-wide pipeline architecture |
 
 ## Naming Convention
 
-`AGENT-NNN-short-name.md` (e.g., `AGENT-001-creator.md`, `AGENT-002-compliance.md`)
-
-## AI Source Prompt
-
-Every generated document must retain the AI Source Prompt block at the top of the file, recording the prompt used, the date, and the rule name (`create-agent.mdc`).
+Use descriptive `snake_case` names ending in `.md` (e.g., `personalisation_rules.md`, `quiz_difficulty_rules.md`).
 
 ## Quality Checklist
 
-- The Agent Persona must have a clear name, role, and pipeline position.
-- Inputs must specify the exact data sources.
-- Strict Guardrails must include at least one FCA compliance constraint.
-- The JSON Output Contract must define every field with type and required status.
-- Error Handling must specify that failures log to `agent_logs` with a timestamp.
+- The document states clear, positive rules (what the agent MUST do) and prohibitions (what it MUST NEVER do).
+- FCA compliance constraints are included where the agent handles user-facing content.
+- The language is concise and scannable -- the AI agent reads this at runtime.
+- Word limits and design constraints reference `03-design-system.mdc` where applicable.

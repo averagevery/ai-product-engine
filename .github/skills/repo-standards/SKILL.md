@@ -17,7 +17,7 @@ This repository follows a GitOps architecture. It is the single source of truth 
 
 - `functions/src/` -- All backend execution logic (Cloud Functions).
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
-- `functions/docs/` -- Agent behavioural rules and compliance documents.
+- `functions/docs/` -- Single source of truth for agent behavioural rules. Editing a file here directly changes agent runtime behaviour.
 - `reference_docs/` -- Historical reference material (read-only archive).
 - `knowledge/` -- Modular knowledge base files.
 - `templates/` -- Fill-in-the-blank document templates.

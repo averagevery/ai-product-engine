@@ -1,5 +1,5 @@
 ---
-description: "Generate a content programme specification"
+description: "Generate a content programme folder with metadata and lesson files"
 globs: ""
 alwaysApply: false
 ---
@@ -12,14 +12,21 @@ Trigger this rule via @-mention when defining a high-level educational programme
 
 ## Instructions
 
-1. Read and use `templates/template-programme.md` as the document skeleton. Fill in every bracketed placeholder.
+1. Read and use `templates/template-programme.md` as the skeleton for the programme metadata file.
 2. Read `knowledge/personas.md` to select a specific target persona by name.
 3. Read `docs/vision-and-product.md` to align the programme with the See -> Learn -> Act model.
-4. Save the completed document to `requirements/content/programmes/`.
+4. Create a **folder** at `requirements/content/programmes/{programme-slug}/`.
+5. Save the programme metadata as `programme.md` inside that folder.
+6. For each lesson listed in the programme, either:
+   - Create a core lesson file using `templates/template-core-lesson.md` (for hand-crafted content synced to `core_lessons`), or
+   - Create an editorial brief using `templates/template-lesson.md` (for AI-generated `user_lessons`).
+7. Lesson files are saved as sibling `.md` files alongside `programme.md` in the same folder.
 
 ## Naming Convention
 
-`PROG-NNN-short-name.md` (e.g., `PROG-001-lisa-education.md`)
+Programme folder: `{programme-slug}/` (e.g., `lisa-savings/`).
+Programme metadata: `programme.md` (always this name, inside the folder).
+Lesson files: `{lesson-slug}.md` (e.g., `lisa-penalty-rules.md`).
 
 ## AI Source Prompt
 
@@ -28,6 +35,6 @@ Every generated document must retain the AI Source Prompt block at the top of th
 ## Quality Checklist
 
 - The Target Persona must reference an entry from `knowledge/personas.md` by name.
-- The Lessons table must list at least 3 lessons with IDs.
+- The Lessons table must list at least 3 lessons with their filenames.
 - Success Criteria must be boolean and measurable.
 - The ATMI Connection section must describe the Layer 3 (Act) follow-through.

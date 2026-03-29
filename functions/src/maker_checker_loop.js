@@ -158,7 +158,7 @@ async function commitPassBatch(params) {
 
   const batch = db.batch();
 
-  const lessonRef = db.collection("lessons").doc();
+  const lessonRef = db.collection("user_lessons").doc();
   const lessonMetadata = lessonDraft.lessonMetadata || {};
   const screens = Array.isArray(lessonDraft.screens)
     ? lessonDraft.screens
@@ -184,6 +184,7 @@ async function commitPassBatch(params) {
     requestID: requestId,
     goal: lessonMetadata.goal || null,
     goalOrder: lessonMetadata.goalOrder || 1,
+    lessonType: "user",
     compliance_audit: {
       status: "PASS",
       reasoning,
@@ -201,6 +202,7 @@ async function commitPassBatch(params) {
     batch.set(screenRef, {
       userID: ownerID,
       lessonId: lessonRef.id,
+      lessonType: "user",
       lessonName,
       requestID: requestId,
       learningStyle: requestData.learningStyle || null,

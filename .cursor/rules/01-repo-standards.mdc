@@ -12,13 +12,16 @@ This repository follows a GitOps architecture and is the single source of truth 
 
 ## Directory Structure
 
-- `functions/src/` -- All backend execution logic (Cloud Functions).
+- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` + lesson `.md` files. Synced to Firestore `core_lessons` via `npm run sync-curriculum`.
+- `requirements/features/` -- App UX/UI feature specifications.
+- `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes AI-generated lessons to `user_lessons`.
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
-- `functions/docs/` -- Agent behavioural rules and compliance documents.
-- `reference_docs/` -- Historical reference material (read-only archive).
+- `functions/docs/` -- Single source of truth for agent behavioural rules. Editing a file here directly changes agent runtime behaviour.
+- `scripts/` -- Utility scripts. `sync_curriculum.js` syncs curriculum markdown to Firestore. Run via `npm run sync-curriculum`.
 - `knowledge/` -- Modular knowledge base files consumed by Cursor AI.
 - `templates/` -- Fill-in-the-blank document templates.
-- `docs/` -- Project-level vision and product documentation.
+- `docs/` -- Project-level documentation including `vision-and-product.md` and `CONTRIBUTING.md`.
+- `reference_docs/` -- Historical reference material (read-only archive, excluded from AI context via `.cursorignore`).
 
 ## The 9-Agent Maker-Checker Philosophy
 

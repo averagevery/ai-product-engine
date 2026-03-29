@@ -1,18 +1,16 @@
 # Mulo AI -- CODEOWNERS
-# Replace @ceo and @partner with actual GitHub handles before enabling branch protection.
-
-# Global Fallback: CEO owns everything
-*                       @ceo
-
-# Collaborative Zone: Partner can lead, CEO must approve
-/requirements/          @partner @ceo
-/knowledge/             @partner @ceo
-/templates/             @partner @ceo
-/functions/docs/        @partner @ceo
-
-# Strictly Locked Engine: Only CEO can amend or approve
-/.cursor/rules/         @ceo
-/.github/               @ceo
-/functions/src/          @ceo
-/.cursorignore          @ceo
-/CODEOWNERS             @ceo
+# Replace @ceo with your actual GitHub username or team (e.g. @your-org/ceo).
+#
+# GitHub behaviour: the last pattern that matches a file wins. Previously,
+# /requirements/ and similar lines listed @partner @ceo, which meant a colleague
+# could satisfy "one code owner approval" on those paths without you.
+#
+# To require YOUR review on every merge to main:
+# 1. Keep a single global owner below (or repeat @ceo on every path you care about).
+# 2. On GitHub Pro / public repo: Settings → Branches → protect main → Require PRs,
+#    Require review from Code Owners (see docs/CONTRIBUTING.md for Free private limits).
+# 3. On GitHub Free + private repo: enforce via collaborator role (Read + fork + PR);
+#    only the owner merges — see docs/CONTRIBUTING.md.
+#
+# All paths: CEO is the code owner for every file in the repo.
+* @ceo

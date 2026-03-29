@@ -6,16 +6,33 @@ Help millions of people in the UK make better financial decisions through simple
 
 ## Product Model: See -> Learn -> Act
 - Layer 1 (SEE): Open Banking financial overview.
-- Layer 2 (LEARN): 3-screen micro-lessons, 30-60s each.
+- Layer 2 (LEARN): 8-11 screen micro-lessons, 3-5 mins each.
 - Layer 3 (ACT): Compare products and switch providers. Mulo earns referral commissions.
+
+## Hybrid Architecture
+
+Four layers work together:
+
+1. **Cursor Monorepo (GitOps)** -- single source of truth for curriculum, agent rules, prompts, and feature specs.
+2. **Firebase Backend** -- Firestore database + Cloud Functions (europe-west2).
+3. **AI Engine** -- Maker-Checker pipeline (Creator + Compliance agents) running inside Cloud Functions.
+4. **FlutterFlow App** -- read-only frontend that queries Firestore.
+
+### Two Lesson Paths
+
+| Path | Firestore Collection | Source |
+|------|---------------------|--------|
+| Hand-crafted curriculum | `core_lessons` | Written as markdown in Cursor, synced via `npm run sync-curriculum` |
+| AI-generated lessons | `user_lessons` | Created by the Maker-Checker pipeline on user request |
+
+Both write screens to a single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`).
 
 ## Repository Layout
 
 ### requirements/ -- Product Specifications
-- requirements/content/programmes/ -- Educational programme definitions (PROG-NNN-name.md). Template: templates/template-programme.md. Rule: create-programme.mdc.
-- requirements/content/lessons/ -- Individual micro-lesson specs (LESSON-NNN-name.md). Template: templates/template-lesson.md. Rule: create-lesson.mdc.
-- requirements/app/features/ -- App UX/UI feature specs (FEAT-NNN-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
-- requirements/app/agents/ -- AI agent specifications (AGENT-NNN-name.md). Template: templates/template-agent.md. Rule: create-agent.mdc.
+- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (metadata) and sibling lesson `.md` files. Template: templates/template-programme.md. Rule: create-programme.mdc.
+- requirements/content/programmes/{programme-name}/{lesson-name}.md -- Hand-crafted core lessons with YAML frontmatter and ## Screen headings. Synced to `core_lessons` via `npm run sync-curriculum`. Template: templates/template-core-lesson.md.
+- requirements/features/ -- App UX/UI feature specs (natural-language-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
 
 ### knowledge/ -- Fact Base (manually curated)
 - knowledge/personas.md -- Five target personas: Sarah, James, Aisha, Tom, Chloe.
@@ -26,42 +43,53 @@ Help millions of people in the UK make better financial decisions through simple
 
 ### docs/ -- Project Documentation
 - docs/vision-and-product.md -- Product vision, mission, and 3-layer architecture.
+- docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos.
 
-### functions/ -- Backend Engine (PROTECTED, read-only for AI)
-- functions/src/ -- Cloud Function execution logic (Maker-Checker loop).
+### functions/ -- Backend Engine
+- functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes to `user_lessons`).
 - functions/prompts/ -- Gemini AI agent prompt definitions.
-- functions/docs/ -- Agent behavioural rules, compliance documents, design guidelines.
+- functions/docs/ -- Single source of truth for agent behavioural rules, compliance constraints, and design guidelines. Edit here to change agent behaviour at runtime. Rule: create-agent.mdc.
+
+### scripts/ -- Utility Scripts
+- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`.
+- Run via: `npm run sync-curriculum` (root package.json).
 
 ### templates/ -- Document Templates
-- templates/template-programme.md -- Programme specification template.
-- templates/template-lesson.md -- Micro-lesson specification template.
+- templates/template-programme.md -- Programme metadata template (saved as `programme.md` inside a programme folder).
+- templates/template-core-lesson.md -- Hand-crafted core lesson template (YAML frontmatter + ## Screen headings).
+- templates/template-lesson.md -- Lesson editorial brief template (input for the AI Maker-Checker pipeline to generate `user_lessons`).
 - templates/template-feature.md -- App feature specification template.
-- templates/template-agent.md -- Agent specification template.
-- templates/template-atmi.md -- Apply to My Money insight card template.
-- templates/template-epic.md -- (Legacy) Epic definition template.
-- templates/template-service-blueprint.md -- (Legacy) Service blueprint template.
-- templates/template-story.md -- (Legacy) User story template.
+- templates/template-service-blueprint.md -- Service blueprint template.
 
 ### .cursor/rules/ -- AI Instruction Layer
 - 01-repo-standards.mdc -- Global standards, GitOps, UK English, europe-west2.
 - 02-use-knowledge.mdc -- Knowledge routing, FCA compliance mandate.
 - 03-design-system.mdc -- Colours, typography, word limits, Lottie constraints.
 - 04-folder-integrity.mdc -- Strict folder structure enforcement.
-- create-programme.mdc -- Generate programme specs.
-- create-lesson.mdc -- Generate lesson specs.
+- 05-update-docs.mdc -- Doc sync protocol: keeps README.md, llms.txt, and folder rules in sync as part of every task.
+- create-programme.mdc -- Generate programme folders with metadata and lesson files.
+- create-lesson.mdc -- Generate lesson editorial briefs (for AI pipeline) or core lesson files (for sync).
 - create-feature.mdc -- Generate feature specs.
-- create-agent.mdc -- Generate agent specs.
+- create-agent.mdc -- Create or update agent rules in functions/docs/.
+- create-blueprint.mdc -- Generate service blueprints mapping user journeys.
 - create-api-spec.mdc -- Generate RESTful API specs.
 
 ### .github/skills/ -- GitHub Copilot Agent Skills
-Each skill mirrors a corresponding .cursor/rules/ file.
+Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-programme, create-lesson, create-feature, create-agent, create-blueprint, create-api-spec, update-docs, repo-standards, design-system, use-knowledge-base.
 
 ## Core Architecture: 9-Agent Maker-Checker Loop
 1. Creator Agent drafts content as structured JSON.
-2. Compliance Agent validates against FCA rules in a while loop.
-3. Only "status": "PASS" allows a Firestore write.
+2. Compliance Agent validates against FCA rules in a for loop (MAX_ATTEMPTS = 3).
+3. Only "status": "PASS" allows a Firestore write to `user_lessons` + `screens`.
 4. Every write includes compliance_audit field with reasoning and timestamp.
 5. Failed drafts logged to agent_logs collection.
+6. Screens include a `lessonType: "user"` field to distinguish from core content.
+
+## Curriculum Sync (Core Lessons)
+1. Author writes lesson markdown in requirements/content/programmes/{programme-name}/.
+2. Each lesson file has YAML frontmatter (metadata) and ## Screen N: Type headings (screen content).
+3. Run `npm run sync-curriculum` to push to Firestore `core_lessons` + `screens` (with `lessonType: "core"`).
+4. The sync is idempotent -- it clears existing core screens before re-syncing.
 
 ## Non-Negotiable Constraints
 - Deployment region: europe-west2 (London).

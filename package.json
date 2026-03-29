@@ -1,0 +1,12 @@
+{
+  "name": "mulo-ai-backend",
+  "private": true,
+  "description": "Mulo AI monorepo -- GitOps source of truth for the Mulo AI platform.",
+  "scripts": {
+    "sync-curriculum": "node scripts/sync_curriculum.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "gray-matter": "^4.0.3"
+  }
+}

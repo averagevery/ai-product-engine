@@ -1,64 +1,76 @@
-> **AI Source Prompt:** [Paste the exact prompt or @-mention that generated this document]
+> **AI Source Prompt:** [Paste the natural language prompt that generated this document. If amending this feature, edit this prompt and use Cmd+K to regenerate the file.]
 > **Generated:** [YYYY-MM-DD]
 > **Rule Used:** create-feature.mdc
 
-# Feature: [Feature Name]
+# [Natural Language Name of Feature, e.g., "The Debt Snowball Calculator UI"]
 
-## Overview
+## 1. Goal and Context
 
-**Feature ID:** [FEAT-NNN]
-**Product Layer:** [SEE / LEARN / ACT]
-**Persona(s) Served:** [Persona name(s) from knowledge/personas.md]
+**Product Layer:** [See (Dashboard) / Learn (Lesson) / Act (Tool)]
+**Target Persona:** [e.g., Sarah -- First Time Buyer, from knowledge/personas.md]
+**Core Objective:** [Write a 2-3 sentence natural language paragraph explaining exactly what this software feature does and why it exists. Focus on the user outcome, not the implementation.]
 
-## UX Flow
+## 2. User Journey
 
-Describe the step-by-step user journey through this feature:
+Describe the step-by-step interaction in plain English. Focus on what the user sees and does.
 
-1. **Entry Point:** [How the user arrives at this feature -- e.g., taps a card on the dashboard]
-2. **Step 1:** [What the user sees and does first]
-3. **Step 2:** [Next interaction]
-4. **Step 3:** [Next interaction]
-5. **Exit Point:** [Where the user goes after completing this flow -- e.g., returns to dashboard, enters a lesson]
+* **Entry:** [How do they get here? e.g., "User taps the 'Debt Tools' card on the dashboard."]
+* **Action:** [What is the primary interaction? e.g., "User enters their outstanding balances and interest rates. The calculator ranks debts by smallest balance first."]
+* **Exit:** [Where do they go next? e.g., "User returns to the dashboard with a personalised payoff plan saved to their profile."]
 
-## UI Layout Constraints
+## 3. Context Documents and Technical Boundaries
 
-All screens must comply with the Mulo design system (`.cursor/rules/03-design-system.mdc`):
+AI agents generating code or content for this feature MUST read the following documents first:
 
-| Constraint | Value |
-|-----------|-------|
-| Background | `#0A0A1A` (near-black) |
-| Primary colour | `#3733E5` (electric blue) |
-| CTA colour | Mint green |
-| Font | DM Sans |
-| Headlines | Max 7 words |
-| Body text | Max 25 words |
-| Feedback text | Max 15 words |
-| Lottie motifs | Bank building, piggy bank, shield, coins, graduation cap, growth chart |
-| Banned elements | `$` symbol, red effects, currency iconography |
+| Document | Path | Relevance |
+|----------|------|-----------|
+| Design System | `.cursor/rules/03-design-system.mdc` | Colours, typography, word limits, Lottie constraints |
+| FCA Regulations | `knowledge/fca-regulations.md` | Compliance boundaries for this feature |
+| [Add more as needed] | [path] | [why this document matters] |
 
-## Database Connections
+**Prohibitions (quick reference):** NEVER use the `$` symbol, red alert text, complex background gradients, or brand logos in any screen generated for this feature.
 
-| Collection | Operation | Fields Used |
-|-----------|-----------|-------------|
-| [e.g., `lessons`] | [READ / WRITE] | [List relevant fields] |
-| [e.g., `screens`] | [READ / WRITE] | [List relevant fields] |
-| [e.g., `image_library`] | [READ] | [List relevant fields] |
+## 4. System Architecture
 
-## Acceptance Criteria
+### Involved AI Agents
 
-- [ ] [Criterion 1: a boolean, testable condition]
-- [ ] [Criterion 2: a boolean, testable condition]
-- [ ] [Criterion 3: a boolean, testable condition]
+| Agent | Role in This Feature | Trigger |
+|-------|---------------------|---------|
+| [e.g., Creator Agent] | [e.g., Generates lesson screens for the calculator tutorial] | [e.g., New lesson_request document created] |
+| [e.g., Telemetry Agent] | [e.g., Tracks drop-off rate on the input screen] | [e.g., Weekly analysis cycle] |
 
-## Dependencies
+### Database Contract (Firestore)
 
-- [Dependency 1]
-- [Dependency 2]
+| Collection | Read/Write | Fields Required |
+|------------|------------|-----------------|
+| [e.g., `users`] | [e.g., READ] | [e.g., `current_balance`, `debt_accounts`] |
+| [e.g., `lessons`] | [e.g., WRITE] | [e.g., `category`, `lessonName`, `compliance_audit`] |
 
-## Out of Scope
+## 5. Compliance Constraints
 
-- [What this feature explicitly does not cover]
+FCA-specific rules that apply to this feature:
 
-## Notes
+* [e.g., "This feature MUST NOT rank or recommend specific debt repayment products. It can only present the user's own data back to them."]
+* [e.g., "All output screens must include a disclaimer: 'This is general education, not financial advice.'"]
+* [e.g., "If the user's debt data suggests financial distress, the feature must surface a supportive message and link to free debt advice (StepChange, Citizens Advice), not a product."]
 
-[Any additional context, edge cases, or design references]
+## 6. Failure States
+
+Instead of boolean acceptance criteria, describe what the system does when things go wrong.
+
+* **Data Failure:** [What happens if the Firestore read/write fails? e.g., "Show a friendly 'offline' skeleton state. Do not show an error code."]
+* **Compliance Failure:** [What happens if the content violates FCA rules? e.g., "If the Compliance Agent returns FAIL, the feature must not render the lesson. Log to agent_logs and retry via the Maker-Checker loop."]
+* **Agent Failure:** [What happens if an AI agent times out or returns malformed output? e.g., "Default to FAIL, log the raw response (truncated to 500 chars) to agent_logs, and show the user a 'try again later' message."]
+
+## 7. Source Implementation
+
+Link to the code files that implement this feature. Leave empty for features not yet built.
+
+| File | Purpose |
+|------|---------|
+| [e.g., `functions/src/maker_checker_loop.js`] | [e.g., Core pipeline that processes lesson generation requests] |
+| [e.g., `functions/prompts/creator_agent.js`] | [e.g., Prompt builder for the Creator Agent] |
+
+## 8. Notes
+
+[Any additional context, edge cases, upstream/downstream dependencies, or design references that do not fit in the sections above.]

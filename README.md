@@ -12,16 +12,36 @@ This repository is the **single source of truth** for the entire platform. Every
 
 The repository is organised into four key zones, each with a clear purpose.
 
+### The Hybrid Architecture
+
+```
+Cursor Monorepo (GitOps)
+    │
+    ├── npm run sync-curriculum ──► Firestore: core_lessons + screens
+    │                                (hand-crafted, read-only in app)
+    │
+    └── firebase deploy ──► Cloud Functions ──► Firestore: user_lessons + screens
+                              (Maker-Checker AI pipeline, read/write in app)
+                                        │
+                                        ▼
+                              FlutterFlow App (reads both)
+```
+
+Two lesson paths feed the same `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`):
+
+| Path | Collection | Source |
+|------|-----------|--------|
+| Hand-crafted curriculum | `core_lessons` | Written in Cursor as markdown, synced via `npm run sync-curriculum` |
+| AI-generated lessons | `user_lessons` | Created by the Maker-Checker pipeline on user request |
+
 ### `requirements/` -- The Source of Truth for Product Specs
 
-All product requirements live here, organised by type:
+All product requirements live here, split into two domains:
 
-| Folder | Contains | Example |
-|--------|----------|---------|
-| `requirements/epics/` | Large initiative definitions | `EPIC-001-lesson-engine.md` |
-| `requirements/features/` | Feature specifications scoped within epics | |
-| `requirements/stories/` | User stories with boolean acceptance criteria | `STORY-001-lisa-basics.md` |
-| `requirements/blueprints/` | Service blueprints mapping user journeys | `BP-001-user-onboarding.md` |
+| Folder | Domain | Contains |
+|--------|--------|----------|
+| `requirements/content/programmes/{name}/` | Curriculum | Programme folder with `programme.md` + lesson `.md` files |
+| `requirements/features/` | Engineering | UX/UI feature specs with database connections |
 
 ### `knowledge/` -- The Fact Base
 
@@ -36,21 +56,21 @@ Manually curated knowledge files that ground every AI interaction in real-world 
 | `knowledge/llms.txt` | Machine-readable project summary (AI agents read this first) |
 | `docs/vision-and-product.md` | Product vision, mission, and the 3-layer architecture |
 
-### `functions/` -- The 9-Agent Maker-Checker Engine (Protected)
+### `functions/` -- The 9-Agent Maker-Checker Engine
 
-The backend execution engine is **read-only** and protected by `.cursorignore`. No AI tool can modify these files:
+The backend execution engine. Agent behavioural rules in `functions/docs/` are the **single source of truth** for what each agent does -- editing a file there directly changes the agent's runtime behaviour.
 
 | Folder | Contains |
 |--------|----------|
-| `functions/src/` | Cloud Function logic (the Maker-Checker `while` loop) |
+| `functions/src/` | Cloud Function logic (the Maker-Checker loop, writes to `user_lessons`) |
 | `functions/prompts/` | Gemini AI prompt definitions (one per agent) |
-| `functions/docs/` | Agent behavioural rules and compliance documents |
+| `functions/docs/` | Agent behavioural rules, compliance constraints, and design guidelines (editable) |
 
 The engine runs a 9-agent pipeline where a **Creator Agent** drafts content, a **Compliance Agent** validates it against FCA rules, and only a `"status": "PASS"` allows a Firestore write. Every write carries a `compliance_audit` trail. Failed drafts are logged to `agent_logs`.
 
 ### `.cursor/rules/` -- The AI Instruction Layer
 
-Cursor rules govern how AI behaves in this repository. Three rules are always on, five are triggered manually:
+Cursor rules govern how AI behaves in this repository. Five rules are always on, six are triggered manually:
 
 | Rule | Type | Purpose |
 |------|------|---------|
@@ -58,10 +78,12 @@ Cursor rules govern how AI behaves in this repository. Three rules are always on
 | `02-use-knowledge.mdc` | Always on | Knowledge routing, FCA compliance mandate |
 | `03-design-system.mdc` | Always on | Colours, typography, word limits, Lottie constraints |
 | `04-folder-integrity.mdc` | Always on | Prevents files in wrong directories |
-| `create-epic.mdc` | @-mention | Drafts epics using the epic template |
-| `create-story.mdc` | @-mention | Drafts stories with boolean acceptance criteria |
-| `create-feature.mdc` | @-mention | Scopes features within the See / Learn / Act model |
-| `create-service-blueprint.mdc` | @-mention | Maps user journeys as service blueprints |
+| `05-update-docs.mdc` | Always on | Keeps `README.md`, `llms.txt`, and folder rules in sync as part of every task |
+| `create-programme.mdc` | @-mention | Creates programme folders in `requirements/content/programmes/` |
+| `create-lesson.mdc` | @-mention | Drafts lesson briefs or core lessons inside programme folders |
+| `create-feature.mdc` | @-mention | Drafts feature specs to `requirements/features/` |
+| `create-agent.mdc` | @-mention | Creates or updates agent rules in `functions/docs/` |
+| `create-blueprint.mdc` | @-mention | Maps user journeys as service blueprints to `docs/` |
 | `create-api-spec.mdc` | @-mention | Generates RESTful API specs for Maker-Checker endpoints |
 
 GitHub Copilot mirrors live in `.github/skills/` with matching `SKILL.md` files.
@@ -76,47 +98,37 @@ You do not need to write code to contribute product specs. The AI does the heavy
 
 1. Open **Cursor Composer** (Cmd/Ctrl + I).
 2. Type `@` to mention a skill, then describe what you need:
-   - `@create-story` -- "Write a user story for Sarah learning about LISA penalties"
-   - `@create-epic` -- "Define the epic for our savings education module"
+   - `@create-programme` -- "Define the LISA savings education programme for Sarah"
+   - `@create-lesson` -- "Write a core lesson on LISA penalties for the lisa-savings programme"
    - `@create-feature` -- "Scope the Open Banking connection feature"
-   - `@create-service-blueprint` -- "Map the onboarding journey from sign-up to first lesson"
+   - `@create-agent` -- "Update the compliance rules to add a new FCA constraint"
 3. The AI will automatically use the correct template from `templates/` and reference the right knowledge files from `knowledge/`.
-4. The generated document is saved to `requirements/`.
+4. The generated document is saved to the appropriate folder.
 5. Open a **Pull Request** for CEO review.
 
 That's it. The AI handles formatting, compliance language, and file placement.
+
+**Full contributor workflow (branches, forks, who merges):** see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ---
 
 ## 3. The GitOps Workflow (The Governance)
 
-Every change follows a four-step review process. No exceptions.
+Every change follows a review process: **branch → pull request → owner merges to `main`**. Nobody should push directly to `main`.
 
-### Step 1: Create a Branch
+### For collaborators
 
-Never work directly on `main`. Create a feature branch:
+1. **Create a branch** (or use a fork if you have Read-only access -- see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)).
+2. **Draft changes** (with AI skills in `.cursor/rules/` or `.github/skills/` where helpful).
+3. **Open a Pull Request** targeting `main`.
+4. **Repository owner** reviews and **merges** the PR.
 
-```bash
-git checkout -b feature/your-feature-name
-```
+On **GitHub Free** private repositories, enforced “only owner can merge” is achieved by giving collaborators **Read** access and using **forks + PRs**; the owner is then the only account that can merge. See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for step-by-step Git commands.
 
-### Step 2: Draft with AI
+### For the owner (CEO)
 
-Use the skills in `.cursor/rules/` (Cursor) or `.github/skills/` (Copilot) to generate or edit documents. The AI is pre-configured with the correct templates, personas, and compliance rules.
-
-### Step 3: Open a Pull Request
-
-Push your branch and open a PR. `CODEOWNERS` automatically assigns the required reviewers based on which files were changed.
-
-### Step 4: CEO Approval
-
-The Code Owner (`@ceo`) must approve all changes before they merge to the live engine. For collaborative zones (`requirements/`, `knowledge/`, `templates/`), the Partner can lead but CEO approval is still required.
-
-| Zone | Who Approves | Paths |
-|------|-------------|-------|
-| Collaborative | Partner leads, CEO approves | `requirements/`, `knowledge/`, `templates/`, `functions/docs/` |
-| Locked Engine | CEO only | `.cursor/rules/`, `.github/`, `functions/src/`, `.cursorignore` |
-| Global fallback | CEO | Everything else |
+- Keep **merge** as your step: you are the gate for `main`.
+- `.github/CODEOWNERS` records intended ownership; automatic required reviews apply when your GitHub plan supports branch protection and code owners on this repo.
 
 ---
 
@@ -134,8 +146,6 @@ These rules are enforced by `.cursor/rules/03-design-system.mdc` and `.cursor/ru
 | Typography | DM Sans (strict, no substitutions) |
 
 ### Mobile Screen Word Limits
-
-All content is designed for 3-screen mobile micro-lessons:
 
 | Element | Maximum |
 |---------|---------|
@@ -171,6 +181,10 @@ Full FCA constraints: `knowledge/fca-regulations.md`.
 ### Install Dependencies
 
 ```bash
+# Root dependencies (for sync script)
+npm install
+
+# Cloud Functions dependencies
 cd functions
 npm install
 ```
@@ -183,11 +197,22 @@ firebase emulators:start
 
 This starts the Cloud Functions emulator locally, allowing you to test the Maker-Checker pipeline without deploying to production. All functions are configured to run in `europe-west2` (London) when deployed.
 
+### Sync Core Curriculum to Firestore
+
+After creating or editing lesson files in `requirements/content/programmes/`:
+
+```bash
+npm run sync-curriculum
+```
+
+This pushes all hand-crafted core lessons to the `core_lessons` and `screens` collections in Firestore. The sync is idempotent -- it clears existing core screens before re-syncing.
+
 ### Project Configuration
 
 - **Firebase config:** `firebase.json` (functions source set to `functions/`)
 - **Environment:** `.firebaserc` (project aliases)
-- **Protected paths:** `.cursorignore` blocks AI from editing `functions/src/`, `functions/docs/`, `functions/prompts/`, and `reference_docs/`
+- **Agent rules:** Edit agent behaviour directly in `functions/docs/` -- changes take effect on next deployment
+- **Root scripts:** `package.json` (curriculum sync)
 
 ---
 
@@ -202,17 +227,24 @@ mulo-ai-backend/
 │   ├── CODEOWNERS          # Role-based access control
 │   └── skills/             # GitHub Copilot Agent Skills
 ├── docs/
+│   ├── CONTRIBUTING.md       # Branch / fork / PR workflow for collaborators
 │   └── vision-and-product.md
-├── functions/              # PROTECTED -- READ-ONLY
-│   ├── docs/               # Agent behavioural rules
+├── functions/              # Backend engine + agent rules
+│   ├── docs/               # Agent behavioural rules (single source of truth)
 │   ├── prompts/            # Agent prompt definitions
 │   └── src/                # Backend execution logic
 ├── knowledge/              # Manually curated fact base
 ├── reference_docs/         # Historical reference material
-├── requirements/           # Product specs (epics, stories, blueprints)
+├── requirements/
+│   ├── content/
+│   │   └── programmes/     # Programme folders (programme.md + lesson files)
+│   └── features/           # App feature specifications
+├── scripts/
+│   └── sync_curriculum.js  # Syncs core lessons to Firestore
 ├── templates/              # Fill-in-the-blank document templates
-├── .cursorignore           # AI write protection
+├── .cursorignore
 ├── .firebaserc
 ├── firebase.json
+├── package.json            # Root scripts (sync-curriculum)
 └── README.md
 ```

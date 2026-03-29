@@ -1,6 +1,6 @@
 ---
 name: create-programme
-description: "Generate a content programme specification defining a collection of micro-lessons for a target persona."
+description: "Generate a content programme folder with metadata and lesson files for a target persona."
 ---
 
 # Create Programme
@@ -11,10 +11,18 @@ Use this skill when defining a high-level educational programme for Mulo. Read `
 
 ## Steps
 
-1. Read and use `templates/template-programme.md` as the document skeleton. Fill in every bracketed placeholder.
+1. Read and use `templates/template-programme.md` as the skeleton for the programme metadata file. Fill in every bracketed placeholder.
 2. Read `knowledge/personas.md` to select a specific target persona by name.
 3. Read `docs/vision-and-product.md` to align the programme with the See -> Learn -> Act model.
-4. Save the completed document to `requirements/content/programmes/` using the naming convention `PROG-NNN-short-name.md`.
+4. Create a **folder** at `requirements/content/programmes/{programme-slug}/`.
+5. Save the programme metadata as `programme.md` inside that folder.
+6. For each lesson, create either a core lesson file (`templates/template-core-lesson.md`) or an editorial brief (`templates/template-lesson.md`) as a sibling `.md` file alongside `programme.md`.
+
+## Naming Convention
+
+Programme folder: `{programme-slug}/` (e.g., `lisa-savings/`).
+Programme metadata: `programme.md`.
+Lesson files: `{lesson-slug}.md` (e.g., `lisa-penalty-rules.md`).
 
 ## AI Source Prompt
 
@@ -23,6 +31,6 @@ Every generated document must retain the AI Source Prompt block at the top, reco
 ## Quality Checklist
 
 - The Target Persona must reference an entry from `knowledge/personas.md` by name.
-- The Lessons table must list at least 3 lessons with IDs.
+- The Lessons table must list at least 3 lessons with their filenames.
 - Success Criteria must be boolean and measurable.
 - The ATMI Connection section must describe the Layer 3 (Act) follow-through.

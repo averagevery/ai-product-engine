@@ -4,6 +4,9 @@
 
 # Programme: [Programme Name]
 
+> Save this file as `programme.md` inside `requirements/content/programmes/[programme-slug]/`.
+> Lesson files sit alongside this file as sibling `.md` files in the same folder.
+
 ## Target Persona
 
 **Persona:** [Persona Name from knowledge/personas.md]
@@ -19,13 +22,13 @@
 
 ## Lessons
 
-| Order | Lesson ID | Lesson Name | Focus |
-|-------|-----------|-------------|-------|
-| 1 | [LESSON-NNN] | [Lesson Name] | [What this lesson teaches] |
-| 2 | [LESSON-NNN] | [Lesson Name] | [What this lesson teaches] |
-| 3 | [LESSON-NNN] | [Lesson Name] | [What this lesson teaches] |
-| 4 | [LESSON-NNN] | [Lesson Name] | [What this lesson teaches] |
-| 5 | [LESSON-NNN] | [Lesson Name] | [What this lesson teaches] |
+Each lesson below is a sibling `.md` file in this programme folder.
+
+| Order | Filename | Lesson Name | Focus |
+|-------|----------|-------------|-------|
+| 1 | [lesson-slug.md] | [Lesson Name] | [What this lesson teaches] |
+| 2 | [lesson-slug.md] | [Lesson Name] | [What this lesson teaches] |
+| 3 | [lesson-slug.md] | [Lesson Name] | [What this lesson teaches] |
 
 ## Success Criteria
 

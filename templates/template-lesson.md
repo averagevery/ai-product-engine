@@ -2,64 +2,58 @@
 > **Generated:** [YYYY-MM-DD]
 > **Rule Used:** create-lesson.mdc
 
-# Lesson: [Lesson Name]
+# Lesson Brief: [Lesson Name]
 
-## Database Frontmatter
+> This is an **editorial brief** -- it defines what the lesson should teach and the editorial tone. The Creator Agent uses this brief to generate the full 8-11 screen lesson via the Maker-Checker pipeline. You do not need to write all screens here; provide the topic direction, sample content, and key learning points.
+
+## Lesson Metadata
 
 ```yaml
 category: [e.g., Savings, Debt, Mortgage, Pension, Investing]
-moduleName: [Parent programme/module name]
+moduleName: [Parent programme name]
 lessonName: [Lesson name]
-lessonLevel: [e.g., Beginner, Intermediate, Advanced]
-lessonTime: [e.g., 60s, 90s]
-persona: [Target persona name]
-screenCount: 3
+lessonLevel: [Beginner / Intermediate / Expert]
+lessonTime: [e.g., 3 mins, 5 mins]
+persona: [Target persona name from knowledge/personas.md]
 ```
 
-## Screen 1: Hook
+## Topic and Learning Objective
 
-**Screen Type:** question
-**Headline:** [Max 7 words -- grab attention with a surprising fact or challenge]
+**Topic:** [One sentence describing the financial concept this lesson teaches]
+**Learning Objective:** [What the user should understand or be able to do after completing this lesson]
+**PISA Pillar:** [Which PISA financial literacy pillar this maps to -- see functions/docs/financial_standards.md]
 
-**Question:** [A multiple-choice question that hooks the learner into the topic]
+## Editorial Direction
+
+Describe the tone, angle, and approach for this lesson. The Creator Agent will use this as creative direction when generating the full screen set.
+
+* **Hook:** [How should the lesson open? e.g., "Start with a surprising stat about how many UK 25-year-olds don't know about the LISA penalty."]
+* **Core Concept:** [What is the single most important thing to teach? e.g., "The LISA has a 25% government bonus but a 25% penalty for non-qualifying withdrawals -- users must understand this is a net loss, not break-even."]
+* **Common Misconception:** [What do learners typically get wrong? e.g., "Many think the 25% penalty only removes the bonus -- in fact it removes 25% of the total including their own contributions."]
+* **Key Takeaways:** [2-3 bullet points the user should remember]
+
+## Sample Question
+
+Provide one example question to set the difficulty and style. The Creator Agent will generate additional questions.
+
+**Question:** [A multiple-choice question]
 - A) [Option A]
 - B) [Option B]
 - C) [Option C]
 - D) [Option D]
 
 **Answer:** [Correct letter]
-**Feedback (Correct):** [Max 15 words -- reinforce why this is right]
-**Feedback (Incorrect):** [Max 15 words -- gently redirect without judgement]
+**Why:** [Brief explanation of why this is the correct answer]
 
-## Screen 2: Learn + Reflect
+## Lottie Suggestion
 
-**Screen Type:** question
-**Headline:** [Max 7 words -- deepen understanding]
-
-**Paragraph:** [Max 25 words -- the core educational content for this screen]
-
-**Question:** [A question that tests comprehension of the concept]
-- A) [Option A]
-- B) [Option B]
-- C) [Option C]
-- D) [Option D]
-
-**Answer:** [Correct letter]
-**Feedback (Correct):** [Max 15 words]
-**Feedback (Incorrect):** [Max 15 words]
-
-## Screen 3: Summary
-
-**Screen Type:** summary
-**Headline:** [Max 7 words -- wrap up the lesson]
-
-**Key Takeaway 1:** [One sentence summarising the most important point]
-**Key Takeaway 2:** [One sentence with a practical implication]
-**Key Takeaway 3:** [One sentence connecting to the next step or ATMI card]
-
-**Lottie Suggestion:** [Approved motif: bank building, piggy bank, shield, coins, graduation cap, or growth chart]
+**Motif:** [Approved motif: bank building, piggy bank, shield, coins, graduation cap, or growth chart]
 
 ## Compliance
 
-**Disclaimer:** [This lesson is general education and does not constitute financial advice.]
+**Disclaimer:** This lesson is general education and does not constitute financial advice.
 **FCA Check:** [ ] Content does not recommend specific products or providers
+
+## Notes
+
+[Any additional context, edge cases, or connections to other lessons/programmes]
