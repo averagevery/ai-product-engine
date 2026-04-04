@@ -128,12 +128,15 @@ requirements/content/programmes/
         │  npm run sync-curriculum
         ▼
   Firestore:
-    core_lessons/{lesson-slug}           ◄── V1 metadata (lessonFormat: v1_swipe)
-    core_lessons/{lesson-slug}--v2       ◄── V2 metadata (lessonFormat: v2_interactive)
+    programmes/{programme-folder}        ◄── Programme metadata (from programme.md YAML)
+    core_lessons/{lesson-slug}           ◄── V1 metadata (lessonFormat: v1_swipe, lessonOrder from programme.md)
+    core_lessons/{lesson-slug}--v2       ◄── V2 metadata (lessonFormat: v2_interactive, lessonOrder from programme.md)
     screens/{auto-id}                    ◄── Linked by lessonId; lessonType: "core"
 ```
 
-The sync script (`scripts/sync_curriculum.js`) parses YAML frontmatter for lesson metadata (including lessons that begin with a blockquote before the first `---` YAML block). V1 files use `## Screen N:` headings; `.v2.md` files use `## Question N:` plus nested `learnMore`. It **validates** each parsed lesson before writing (v1: 8–11 screens, question/summary fields; v2: 5 questions, `learnMore` carousel/cards/takeaways, `correctIndex`, etc.). Run `npm run validate-curriculum` for the same checks without Firestore. One Firestore batch write per file after validation passes.
+The sync script (`scripts/sync_curriculum.js`) processes each programme folder in two phases: first it parses `programme.md` YAML frontmatter (programme metadata + ordered `lessons` array) and syncs the `programmes/{id}` document; then it parses each lesson file's YAML frontmatter and content. V1 files use `## Screen N:` headings; `.v2.md` files use `## Question N:` plus nested `learnMore`. It **validates** each parsed lesson before writing (v1: 8–11 screens, question/summary fields; v2: 5 questions, `learnMore` carousel/cards/takeaways, `correctIndex`, etc.). Each lesson's `lessonOrder` is set from the `lessons` array in `programme.md`. Run `npm run validate-curriculum` for the same checks without Firestore.
+
+**Idempotency and repo as source of truth:** For each programme and lesson file, the script stores `sourceSha256` (hash of the raw markdown on disk). If Firestore already has the same `sourceSha256` and (for lessons) the number of `screens` rows with `lessonType: "core"` matches the parsed screen count, that document is **skipped** (no delete/re-write). If the lesson was removed in the Firebase console, the next sync **recreates** it from the repo. After all programmes are processed, any `core_lessons` document whose `programmeId` matches a programme folder but whose document id is **not** present in that folder’s expected lesson set is **pruned** (document deleted and its core `screens` removed). Any `programmes` document whose id does not match a folder in `requirements/content/programmes/` is also pruned (along with its `core_lessons` and `screens`). Use `--no-prune` to disable pruning, or `--force` to always re-write regardless of hash.
 
 ---
 
@@ -156,6 +159,22 @@ Source: `functions/index.js` and `functions/src/maker_checker_loop.js`
 
 ## Database Schema (Firestore)
 
+### Collection: `programmes`
+
+Programme metadata synced from `programme.md` YAML frontmatter. Read-only in the app. Doc ID = programme folder name (e.g. `first-home-foundations`).
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `programmeName` | string | Display name (e.g. "First Home Foundations") |
+| `category` | string | Financial education category |
+| `persona` | string | Target persona name |
+| `estimatedTime` | string | Total estimated time for the programme |
+| `lessonCount` | number | Number of lessons listed in the frontmatter |
+| `lessons` | array | Ordered array of `{ slug: string, order: number }`. Source of truth for lesson display order. `slug` matches the lesson filename stem (without `.md`/`.v2.md`). |
+| `sourceSha256` | string | SHA-256 (hex) of the raw `programme.md` file; used to skip re-writes when unchanged |
+| `syncedAt` | Timestamp | When this programme was last synced |
+| `syncedFrom` | string | Relative file path in the monorepo |
+
 ### Collection: `core_lessons`
 
 Hand-crafted lessons synced from the Cursor monorepo. Read-only in the app.
@@ -169,7 +188,9 @@ Hand-crafted lessons synced from the Cursor monorepo. Read-only in the app.
 | `lessonTime` | string | Estimated completion time |
 | `persona` | string | Target persona name |
 | `lessonFormat` | string | `"v1_swipe"` or `"v2_interactive"`. Set explicitly on sync (v1 file → v1_swipe; `.v2.md` → v2_interactive). V2 documents use id `{slug}--v2`. |
+| `lessonOrder` | number | Display order within the programme (1-indexed). Set from the `lessons` array in `programme.md` YAML frontmatter. FlutterFlow queries `core_lessons` filtered by `programmeId` and ordered by `lessonOrder`. |
 | `screenCount` | number | Total number of screens in this lesson (8-11 for v1_swipe, 5 for v2_interactive) |
+| `sourceSha256` | string | SHA-256 (hex) of the raw markdown file at last successful sync; used to skip re-writes when unchanged |
 | `syncedAt` | Timestamp | When this lesson was last synced |
 | `syncedFrom` | string | Relative file path in the monorepo |
 

@@ -1,10 +1,15 @@
 /**
  * Curriculum Sync Engine
  *
- * Scans requirements/content/programmes/ for hand-crafted lesson markdown.
+ * Scans requirements/content/programmes/ for hand-crafted curriculum:
+ * - `programme.md` -- YAML frontmatter with programme metadata + ordered lessons array
  * - `{slug}.md` -- v1_swipe: YAML frontmatter + ## Screen headings
  * - `{slug}.v2.md` -- v2_interactive: YAML frontmatter + ## Question headings + learnMore
- * Pushes to Firestore core_lessons + screens (v2 lesson doc ID: `{slug}--v2`).
+ *
+ * Pushes to Firestore:
+ * - programmes/{programmeId} (from programme.md)
+ * - core_lessons/{slug} + core_lessons/{slug}--v2 (with lessonOrder from programme.md)
+ * - screens/{auto-id} (linked by lessonId, lessonType: "core")
  *
  * Usage:
  *   npm run sync-curriculum
@@ -12,16 +17,23 @@
  *
  * Flags:
  *   --dry-run   Same as validate-curriculum: no Firebase init or writes.
+ *   --no-prune  Do not delete programmes/core_lessons/screens removed from the repo.
+ *   --force     Always re-write (ignore sourceSha256 / screen-count short-circuit).
  */
 
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const matter = require("gray-matter");
 const admin = require("firebase-admin");
 
 const DRY_RUN =
   process.argv.includes("--dry-run") ||
   process.argv.includes("--validate-only");
+
+const NO_PRUNE = process.argv.includes("--no-prune");
+
+const FORCE_SYNC = process.argv.includes("--force");
 
 const REPO_ROOT = path.join(__dirname, "..");
 
@@ -262,8 +274,9 @@ function validateV1Lesson(lessonSlug, programmeId, frontmatter, screens) {
 /**
  * Sync a single v1_swipe lesson file to Firestore.
  */
-async function syncLesson(filePath, programmeId) {
+async function syncLesson(filePath, programmeId, lessonOrder) {
   const raw = fs.readFileSync(filePath, "utf-8");
+  const sourceSha256 = sha256Utf8(raw);
   const { data: frontmatter, content } = matterLessonFile(raw);
 
   const lessonSlug = path.basename(filePath, ".md");
@@ -289,6 +302,19 @@ async function syncLesson(filePath, programmeId) {
     return { synced: true, screenCount: screens.length, dryRun: true };
   }
 
+  if (
+    !FORCE_SYNC &&
+    (await lessonIsUpToDateInFirestore(
+      db,
+      lessonSlug,
+      sourceSha256,
+      screens.length,
+    ))
+  ) {
+    console.log(`  Unchanged ${lessonSlug} (file hash + screen rows match Firestore)`);
+    return { skipped: true, screenCount: screens.length };
+  }
+
   const cleared = await deleteExistingCoreScreens(lessonSlug);
   if (cleared > 0) {
     console.log(`  Cleared ${cleared} existing screens for ${lessonSlug}`);
@@ -297,7 +323,7 @@ async function syncLesson(filePath, programmeId) {
   const batch = db.batch();
 
   const lessonRef = db.collection("core_lessons").doc(lessonSlug);
-  batch.set(lessonRef, {
+  const lessonDoc = {
     programmeId,
     category: frontmatter.category || "",
     lessonName: frontmatter.lessonName || lessonSlug,
@@ -306,9 +332,14 @@ async function syncLesson(filePath, programmeId) {
     lessonTime: frontmatter.lessonTime || "",
     persona: frontmatter.persona || "",
     screenCount: screens.length,
+    sourceSha256,
     syncedAt: admin.firestore.FieldValue.serverTimestamp(),
     syncedFrom: relativePath,
-  });
+  };
+  if (Number.isInteger(lessonOrder)) {
+    lessonDoc.lessonOrder = lessonOrder;
+  }
+  batch.set(lessonRef, lessonDoc);
 
   screens.forEach((screen) => {
     const screenRef = db.collection("screens").doc();
@@ -325,7 +356,7 @@ async function syncLesson(filePath, programmeId) {
   });
 
   await batch.commit();
-  return { synced: true, screenCount: screens.length };
+  return { synced: true, screenCount: screens.length, skipped: false };
 }
 
 /**
@@ -646,11 +677,119 @@ function parseTakeaways(lmBody) {
 }
 
 /**
+ * Parse programme.md YAML frontmatter into structured data.
+ * Returns { data, content } where data has programmeName, category, persona, etc.
+ */
+function parseProgramme(filePath) {
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const { data, content } = matterLessonFile(raw);
+  return { data, content, raw };
+}
+
+/**
+ * Validate parsed programme frontmatter. Returns human-readable error strings.
+ */
+function validateProgramme(programmeId, frontmatter) {
+  const errors = [];
+  if (!(frontmatter.programmeName || "").trim()) {
+    errors.push(`${programmeId}: frontmatter programmeName is missing or empty`);
+  }
+  if (!Array.isArray(frontmatter.lessons) || frontmatter.lessons.length === 0) {
+    errors.push(
+      `${programmeId}: frontmatter lessons array is missing or empty`,
+    );
+    return errors;
+  }
+  const seenSlugs = new Set();
+  const seenOrders = new Set();
+  frontmatter.lessons.forEach((entry, idx) => {
+    const label = `${programmeId} lessons[${idx}]`;
+    if (!(entry.slug || "").trim()) {
+      errors.push(`${label}: slug is missing or empty`);
+    }
+    if (!Number.isInteger(entry.order) || entry.order < 1) {
+      errors.push(`${label}: order must be a positive integer (got ${entry.order})`);
+    }
+    if (entry.slug && seenSlugs.has(entry.slug)) {
+      errors.push(`${label}: duplicate slug "${entry.slug}"`);
+    }
+    if (Number.isInteger(entry.order) && seenOrders.has(entry.order)) {
+      errors.push(`${label}: duplicate order ${entry.order}`);
+    }
+    seenSlugs.add(entry.slug);
+    seenOrders.add(entry.order);
+  });
+  return errors;
+}
+
+/**
+ * Check if a programmes doc is up to date in Firestore (same sourceSha256 + lessonCount).
+ */
+async function programmeIsUpToDateInFirestore(db, programmeId, sourceSha256, lessonCount) {
+  const snap = await db.collection("programmes").doc(programmeId).get();
+  if (!snap.exists) return false;
+  const prev = snap.data() || {};
+  return (prev.sourceSha256 || "") === sourceSha256 && prev.lessonCount === lessonCount;
+}
+
+/**
+ * Sync a programme.md to Firestore programmes/{programmeId}.
+ * Returns { synced, skipped, errors, lessons }.
+ */
+async function syncProgramme(filePath, programmeId) {
+  const { data: frontmatter, raw } = parseProgramme(filePath);
+  const sourceSha256 = sha256Utf8(raw);
+
+  const validationErrors = validateProgramme(programmeId, frontmatter);
+  if (validationErrors.length > 0) {
+    return { synced: false, errors: validationErrors, lessons: [] };
+  }
+
+  const lessons = frontmatter.lessons.map((e) => ({
+    slug: e.slug,
+    order: e.order,
+  }));
+  const lessonCount = lessons.length;
+
+  const relativePath = path
+    .relative(path.resolve(__dirname, ".."), filePath)
+    .replace(/\\/g, "/");
+
+  const db = getFirestore();
+  if (!db) {
+    return { synced: true, dryRun: true, lessons, errors: [] };
+  }
+
+  if (
+    !FORCE_SYNC &&
+    (await programmeIsUpToDateInFirestore(db, programmeId, sourceSha256, lessonCount))
+  ) {
+    console.log(`  Programme ${programmeId} unchanged (hash match)`);
+    return { skipped: true, lessons, errors: [] };
+  }
+
+  await db.collection("programmes").doc(programmeId).set({
+    programmeName: frontmatter.programmeName || "",
+    category: frontmatter.category || "",
+    persona: frontmatter.persona || "",
+    estimatedTime: frontmatter.estimatedTime || "",
+    lessonCount,
+    lessons,
+    sourceSha256,
+    syncedAt: admin.firestore.FieldValue.serverTimestamp(),
+    syncedFrom: relativePath,
+  });
+
+  return { synced: true, skipped: false, lessons, errors: [] };
+}
+
+/**
  * Sync a single v2_interactive lesson file to Firestore.
  * The doc ID uses {baseSlug}--v2 to distinguish from the v1 doc.
  */
-async function syncV2Lesson(filePath, programmeId) {
+async function syncV2Lesson(filePath, programmeId, lessonOrder) {
   const raw = fs.readFileSync(filePath, "utf-8");
+  const sourceSha256 = sha256Utf8(raw);
   const { data: frontmatter, content } = matterLessonFile(raw);
 
   const baseSlug = path.basename(filePath, ".v2.md");
@@ -677,6 +816,21 @@ async function syncV2Lesson(filePath, programmeId) {
     return { synced: true, screenCount: screens.length, dryRun: true };
   }
 
+  if (
+    !FORCE_SYNC &&
+    (await lessonIsUpToDateInFirestore(
+      db,
+      lessonSlug,
+      sourceSha256,
+      screens.length,
+    ))
+  ) {
+    console.log(
+      `  Unchanged ${lessonSlug} (file hash + screen rows match Firestore)`,
+    );
+    return { skipped: true, screenCount: screens.length };
+  }
+
   const cleared = await deleteExistingCoreScreens(lessonSlug);
   if (cleared > 0) {
     console.log(`  Cleared ${cleared} existing screens for ${lessonSlug}`);
@@ -685,7 +839,7 @@ async function syncV2Lesson(filePath, programmeId) {
   const batch = db.batch();
 
   const lessonRef = db.collection("core_lessons").doc(lessonSlug);
-  batch.set(lessonRef, {
+  const lessonDoc = {
     programmeId,
     category: frontmatter.category || "",
     lessonName: frontmatter.lessonName || baseSlug,
@@ -694,9 +848,14 @@ async function syncV2Lesson(filePath, programmeId) {
     lessonTime: frontmatter.lessonTime || "",
     persona: frontmatter.persona || "",
     screenCount: screens.length,
+    sourceSha256,
     syncedAt: admin.firestore.FieldValue.serverTimestamp(),
     syncedFrom: relativePath,
-  });
+  };
+  if (Number.isInteger(lessonOrder)) {
+    lessonDoc.lessonOrder = lessonOrder;
+  }
+  batch.set(lessonRef, lessonDoc);
 
   screens.forEach((screen) => {
     const {correctIndexRaw: _drop, ...screenDoc} = screen;
@@ -714,7 +873,7 @@ async function syncV2Lesson(filePath, programmeId) {
   });
 
   await batch.commit();
-  return { synced: true, screenCount: screens.length };
+  return { synced: true, screenCount: screens.length, skipped: false };
 }
 
 /**
@@ -737,6 +896,100 @@ async function deleteExistingCoreScreens(lessonSlug) {
   snapshot.docs.forEach((doc) => batch.delete(doc.ref));
   await batch.commit();
   return snapshot.size;
+}
+
+function sha256Utf8(text) {
+  return crypto.createHash("sha256").update(text, "utf8").digest("hex");
+}
+
+/**
+ * True if core_lessons exists with matching sourceSha256 and screen row count matches parsed lesson.
+ */
+async function lessonIsUpToDateInFirestore(db, lessonDocId, sourceSha256, expectedScreenCount) {
+  const lessonSnap = await db.collection("core_lessons").doc(lessonDocId).get();
+  if (!lessonSnap.exists) {
+    return false;
+  }
+  const prev = lessonSnap.data() || {};
+  if ((prev.sourceSha256 || "") !== sourceSha256) {
+    return false;
+  }
+  const screenSnap = await db
+    .collection("screens")
+    .where("lessonId", "==", lessonDocId)
+    .where("lessonType", "==", "core")
+    .get();
+  return screenSnap.size === expectedScreenCount;
+}
+
+/**
+ * Remove core_lessons doc and all core screens for that lesson id.
+ */
+async function deleteCoreLessonDocAndScreens(lessonDocId) {
+  const db = getFirestore();
+  if (!db) {
+    return;
+  }
+  const n = await deleteExistingCoreScreens(lessonDocId);
+  await db.collection("core_lessons").doc(lessonDocId).delete();
+  return n;
+}
+
+/**
+ * Delete core lessons in Firestore for this programme that are not in expectedDocIds (repo = source of truth).
+ */
+async function pruneOrphanedCoreLessons(expectedByProgramme) {
+  const db = getFirestore();
+  if (!db) {
+    return 0;
+  }
+  let pruned = 0;
+  for (const [programmeId, expectedIds] of expectedByProgramme) {
+    const snap = await db
+      .collection("core_lessons")
+      .where("programmeId", "==", programmeId)
+      .get();
+    for (const doc of snap.docs) {
+      if (!expectedIds.has(doc.id)) {
+        console.log(
+          `  Pruned ${doc.id} (removed from repo under programme ${programmeId})`,
+        );
+        await deleteCoreLessonDocAndScreens(doc.id);
+        pruned += 1;
+      }
+    }
+  }
+  return pruned;
+}
+
+/**
+ * Delete programmes docs in Firestore that no longer have a matching folder in the repo.
+ * Cascades: removes all core_lessons + screens for that programmeId too.
+ */
+async function pruneOrphanedProgrammes(expectedProgrammeIds) {
+  const db = getFirestore();
+  if (!db) return 0;
+
+  const snap = await db.collection("programmes").get();
+  let pruned = 0;
+  for (const doc of snap.docs) {
+    if (!expectedProgrammeIds.has(doc.id)) {
+      console.log(`  Pruned programme ${doc.id} (folder removed from repo)`);
+
+      const lessonsSnap = await db
+        .collection("core_lessons")
+        .where("programmeId", "==", doc.id)
+        .get();
+      for (const lessonDoc of lessonsSnap.docs) {
+        await deleteCoreLessonDocAndScreens(lessonDoc.id);
+        console.log(`    Cascade-deleted lesson ${lessonDoc.id}`);
+      }
+
+      await doc.ref.delete();
+      pruned += 1;
+    }
+  }
+  return pruned;
 }
 
 async function main() {
@@ -773,22 +1026,64 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
     process.exit(0);
   }
 
+  let totalProgrammes = 0;
   let totalLessons = 0;
   let totalScreens = 0;
+  let totalSkipped = 0;
   let validationFailed = false;
+
+  /** @type {Map<string, Set<string>>} */
+  const expectedByProgramme = new Map();
+  const expectedProgrammeIds = new Set();
 
   for (const programmeId of programmeFolders) {
     const programmeDir = path.join(PROGRAMMES_DIR, programmeId);
     console.log(`\nProgramme: ${programmeId}`);
+    expectedProgrammeIds.add(programmeId);
 
+    // --- Phase 1: parse & sync programme.md ---
+    const programmeMdPath = path.join(programmeDir, "programme.md");
+    let lessonOrderMap = new Map();
+
+    if (fs.existsSync(programmeMdPath)) {
+      const progResult = await syncProgramme(programmeMdPath, programmeId);
+      if (progResult.errors && progResult.errors.length > 0) {
+        validationFailed = true;
+        progResult.errors.forEach((msg) =>
+          console.error(`  VALIDATION ERROR: ${msg}`),
+        );
+      } else {
+        if (progResult.synced && !progResult.skipped) {
+          totalProgrammes++;
+          const tag = progResult.dryRun ? "validated (dry-run)" : "Synced";
+          console.log(`  ${tag} programme ${programmeId}`);
+        }
+        progResult.lessons.forEach((e) => lessonOrderMap.set(e.slug, e.order));
+      }
+    } else {
+      console.log("  No programme.md found -- skipping programme sync.");
+    }
+
+    // --- Phase 2: parse & sync lessons ---
     const lessonFiles = fs
       .readdirSync(programmeDir)
       .filter((f) => f.endsWith(".md") && f !== "programme.md");
 
     if (lessonFiles.length === 0) {
       console.log("  No lesson files found.");
+      expectedByProgramme.set(programmeId, new Set());
       continue;
     }
+
+    const expectedIds = new Set();
+    for (const lessonFile of lessonFiles) {
+      if (lessonFile.endsWith(".v2.md")) {
+        expectedIds.add(path.basename(lessonFile, ".v2.md") + "--v2");
+      } else {
+        expectedIds.add(path.basename(lessonFile, ".md"));
+      }
+    }
+    expectedByProgramme.set(programmeId, expectedIds);
 
     for (const lessonFile of lessonFiles) {
       const filePath = path.join(programmeDir, lessonFile);
@@ -797,13 +1092,18 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
       if (isV2) {
         const baseSlug = path.basename(lessonFile, ".v2.md");
         const v2Slug = baseSlug + "--v2";
+        const order = lessonOrderMap.get(baseSlug);
 
-        const result = await syncV2Lesson(filePath, programmeId);
+        const result = await syncV2Lesson(filePath, programmeId, order);
         if (result.errors && result.errors.length > 0) {
           validationFailed = true;
           result.errors.forEach((msg) =>
             console.error(`  VALIDATION ERROR: ${msg}`),
           );
+          continue;
+        }
+        if (result.skipped) {
+          totalSkipped += 1;
           continue;
         }
         if (result.synced) {
@@ -814,13 +1114,18 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
         }
       } else {
         const lessonSlug = path.basename(lessonFile, ".md");
+        const order = lessonOrderMap.get(lessonSlug);
 
-        const result = await syncLesson(filePath, programmeId);
+        const result = await syncLesson(filePath, programmeId, order);
         if (result.errors && result.errors.length > 0) {
           validationFailed = true;
           result.errors.forEach((msg) =>
             console.error(`  VALIDATION ERROR: ${msg}`),
           );
+          continue;
+        }
+        if (result.skipped) {
+          totalSkipped += 1;
           continue;
         }
         if (result.synced) {
@@ -842,9 +1147,27 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
     process.exit(1);
   }
 
+  let prunedLessons = 0;
+  let prunedProgrammes = 0;
+  if (!DRY_RUN && !NO_PRUNE) {
+    prunedLessons = await pruneOrphanedCoreLessons(expectedByProgramme);
+    prunedProgrammes = await pruneOrphanedProgrammes(expectedProgrammeIds);
+  } else if (NO_PRUNE && !DRY_RUN) {
+    console.log("\nSkipping prune (--no-prune).");
+  }
+
   const modeLabel = DRY_RUN ? "Validated (dry-run, no Firestore writes)" : "Synced";
+  const progPart = totalProgrammes > 0 ? `${totalProgrammes} programme(s), ` : "";
+  const prunePart =
+    !DRY_RUN && (prunedLessons > 0 || prunedProgrammes > 0)
+      ? `; pruned ${prunedLessons} lesson(s) + ${prunedProgrammes} programme(s)`
+      : "";
+  const skipPart =
+    !DRY_RUN && totalSkipped > 0
+      ? `; ${totalSkipped} unchanged (skipped re-write)`
+      : "";
   console.log(
-    `\nDone. ${modeLabel}: ${totalLessons} lessons with ${totalScreens} screens.`,
+    `\nDone. ${modeLabel}: ${progPart}${totalLessons} lesson(s) written, ${totalScreens} screen row(s)${skipPart}${prunePart}.`,
   );
   process.exit(0);
 }
@@ -859,6 +1182,8 @@ if (require.main === module) {
 module.exports = {
   parseScreens,
   parseV2Screens,
+  parseProgramme,
   validateV1Lesson,
   validateV2Lesson,
+  validateProgramme,
 };

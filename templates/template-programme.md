@@ -2,6 +2,21 @@
 > **Generated:** [YYYY-MM-DD]
 > **Rule Used:** create-programme.mdc
 
+---
+programmeName: "[Programme Name]"
+category: "[Financial education category]"
+persona: "[Persona Name from knowledge/personas.md]"
+estimatedTime: "[e.g. 10 mins]"
+lessonCount: 3
+lessons:
+  - slug: "[lesson-slug-1]"
+    order: 1
+  - slug: "[lesson-slug-2]"
+    order: 2
+  - slug: "[lesson-slug-3]"
+    order: 3
+---
+
 # Programme: [Programme Name]
 
 > Save this file as `programme.md` inside `requirements/content/programmes/[programme-slug]/`.
@@ -22,7 +37,7 @@
 
 ## Lessons
 
-Each lesson below is a sibling `.md` file in this programme folder.
+Each lesson below is a sibling `.md` file in this programme folder. The `lessons` array in the YAML frontmatter above is the source of truth for lesson order (synced to Firestore).
 
 | Order | Filename | Lesson Name | Focus |
 |-------|----------|-------------|-------|

@@ -12,7 +12,7 @@ This repository follows a GitOps architecture and is the single source of truth 
 
 ## Directory Structure
 
-- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` + paired lesson files (`{slug}.md` for v1_swipe and `{slug}.v2.md` for v2_interactive). Synced to Firestore `core_lessons` via `npm run sync-curriculum`.
+- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` (YAML frontmatter: `programmeName`, `category`, `persona`, `lessons` array with `slug` + `order`) + paired lesson files (`{slug}.md` for v1_swipe and `{slug}.v2.md` for v2_interactive). Synced to Firestore `programmes` + `core_lessons` (with `lessonOrder`) via `npm run sync-curriculum`.
 - `requirements/features/` -- App UX/UI feature specifications.
 - `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes AI-generated lessons to `user_lessons`.
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
