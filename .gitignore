@@ -71,5 +71,11 @@ node_modules/
 # Local scratch / extraction output (do not commit)
 _extracted/
 
+# Local-only GCP / Firebase service account keys (never commit)
+.secrets/
+*-firebase-adminsdk*.json
+serviceAccount*.json
+*-service-account*.json
+
 
 functions/node_modules/

@@ -51,6 +51,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 ### docs/ -- Project Documentation
 - docs/vision-and-product.md -- Product vision, mission, and 3-layer architecture.
 - docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos.
+- docs/partner-curriculum-sync.md -- Default: merge PR to main → GitHub Action syncs `requirements/content/programmes/` to Firestore (secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow `.github/workflows/sync-curriculum.yml`). Optional local sync via `.secrets/` or env — see scripts/README.md.
 
 ### functions/ -- Backend Engine
 - functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes both v2 and v1 to `user_lessons` in parallel via `Promise.allSettled`). timeoutSeconds: 240, memory: 1GiB.
@@ -58,7 +59,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 - functions/docs/ -- Single source of truth for agent behavioural rules, compliance constraints, and design guidelines. Edit here to change agent behaviour at runtime. Rule: create-agent.mdc.
 
 ### scripts/ -- Utility Scripts
-- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`. Handles both `.md` (v1, parseScreens) and `.v2.md` (v2, parseV2Screens) files. Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one (avoids Admin SDK "unable to detect a project ID"). Requires `GOOGLE_APPLICATION_CREDENTIALS` or Application Default Credentials.
+- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`. Handles both `.md` (v1, parseScreens) and `.v2.md` (v2, parseV2Screens) files. Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one (avoids Admin SDK "unable to detect a project ID"). If `GOOGLE_APPLICATION_CREDENTIALS` is unset, uses `.secrets/firebase-adminsdk.json` or the only `*.json` in `.secrets/`. CI: `.github/workflows/sync-curriculum.yml` (secret `FIREBASE_SERVICE_ACCOUNT_JSON`).
 - Run via: `npm run sync-curriculum` (root package.json). `npm run validate-curriculum` runs parsers + validation with `--dry-run` (no Firestore).
 
 ### templates/ -- Document Templates

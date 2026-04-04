@@ -57,6 +57,7 @@ Manually curated knowledge files that ground every AI interaction in real-world 
 | `knowledge/day2-open-banking.md` | Open Banking data principles, signal categories, agent architecture |
 | `knowledge/llms.txt` | Machine-readable project summary (AI agents read this first) |
 | `docs/vision-and-product.md` | Product vision, mission, and the 3-layer architecture |
+| `docs/partner-curriculum-sync.md` | PR merge to `main` → GitHub Action syncs programmes to Firestore |
 
 ### `functions/` -- The 9-Agent Maker-Checker Engine
 
@@ -216,7 +217,7 @@ Check lessons without touching Firestore (parsers + validation only):
 npm run validate-curriculum
 ```
 
-**Firestore sync auth:** Set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON (or use Application Default Credentials). The sync script passes the project ID from `.firebaserc` (`projects.default`) so you avoid the “unable to detect a project ID” error when credentials omit it. See `scripts/README.md` for details.
+**Firestore sync (curriculum):** Default path is **GitHub Actions** — secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow runs on push to `main` when `requirements/content/programmes/**` changes (including PR merges). See **`docs/partner-curriculum-sync.md`**. For optional local runs: `.secrets/firebase-adminsdk.json` or `GOOGLE_APPLICATION_CREDENTIALS`; project ID from `.firebaserc`. Full detail: `scripts/README.md`.
 
 Example paired lesson (v1 + v2 markdown): `requirements/content/programmes/first-home-foundations/first-home-deposits-explained.md` and `first-home-deposits-explained.v2.md`.
 
@@ -238,9 +239,12 @@ mulo-ai-backend/
 │   └── mcp.json                  # MCP server configuration
 ├── .github/
 │   ├── CODEOWNERS                # Role-based access control
-│   └── skills/                   # GitHub Copilot Agent Skills
+│   ├── skills/                   # GitHub Copilot Agent Skills
+│   └── workflows/
+│       └── sync-curriculum.yml   # Push programmes/ on main → Firestore sync (needs repo secret)
 ├── docs/
 │   ├── CONTRIBUTING.md           # Branch / fork / PR workflow for collaborators
+│   ├── partner-curriculum-sync.md # PR to main → Action syncs programmes to Firestore
 │   └── vision-and-product.md     # Product vision, 3-layer model, app structure
 ├── functions/                    # Backend engine + agent rules
 │   ├── docs/                     # Agent behavioural rules (single source of truth)

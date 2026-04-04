@@ -25,10 +25,13 @@ Syncs hand-crafted core lesson content from the Cursor monorepo to Firestore.
 npm install
 ```
 
-You must be authenticated with Firebase Admin (Firestore writes). Either:
+**Team workflow (default):** Add GitHub Actions secret **`FIREBASE_SERVICE_ACCOUNT_JSON`** (full service account JSON). Pushes to **`main`** that touch `requirements/content/programmes/**` run **Sync curriculum to Firestore** — see **`docs/partner-curriculum-sync.md`**.
 
-- Set `GOOGLE_APPLICATION_CREDENTIALS` to a **service account JSON** path (recommended for CI and local sync). The account needs Firestore write access to your project.
-- Or use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (e.g. `gcloud auth application-default login`).
+**Running sync on your own machine** (optional): the service account needs Firestore write access. Either:
+
+- Put the JSON at **`.secrets/firebase-adminsdk.json`** (or the only `*.json` in `.secrets/`); the script sets `GOOGLE_APPLICATION_CREDENTIALS` if unset, **or**
+- Set `GOOGLE_APPLICATION_CREDENTIALS` to the full path of the JSON file, **or**
+- Use [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) (e.g. `gcloud auth application-default login`).
 
 **Project ID:** If you see `unable to detect a project ID in the current environment`, the script reads **`projects.default` from `.firebaserc`** in the repo root and passes it to `initializeApp`. You can override with any of:
 

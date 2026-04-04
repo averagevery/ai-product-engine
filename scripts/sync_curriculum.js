@@ -23,6 +23,43 @@ const DRY_RUN =
   process.argv.includes("--dry-run") ||
   process.argv.includes("--validate-only");
 
+const REPO_ROOT = path.join(__dirname, "..");
+
+/**
+ * If GOOGLE_APPLICATION_CREDENTIALS is unset, use a key in `.secrets/` so
+ * teammates can run `npm run sync-curriculum` without Windows env-var setup.
+ * Preferred file: `.secrets/firebase-adminsdk.json`
+ * Fallback: the only `*.json` file in `.secrets/` (if exactly one).
+ */
+function ensureLocalServiceAccountFromSecretsFolder() {
+  if (DRY_RUN) {
+    return;
+  }
+  const existing = (process.env.GOOGLE_APPLICATION_CREDENTIALS || "").trim();
+  if (existing) {
+    return;
+  }
+  const secretsDir = path.join(REPO_ROOT, ".secrets");
+  const preferred = path.join(secretsDir, "firebase-adminsdk.json");
+  if (fs.existsSync(preferred)) {
+    process.env.GOOGLE_APPLICATION_CREDENTIALS = preferred;
+    return;
+  }
+  if (fs.existsSync(secretsDir)) {
+    const jsonFiles = fs
+      .readdirSync(secretsDir)
+      .filter((f) => f.endsWith(".json"));
+    if (jsonFiles.length === 1) {
+      process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(
+        secretsDir,
+        jsonFiles[0],
+      );
+    }
+  }
+}
+
+ensureLocalServiceAccountFromSecretsFolder();
+
 /**
  * Firebase Admin needs a project ID when it cannot infer one from credentials
  * (common on Windows / local service-account JSON / ADC without gcloud project).
@@ -70,9 +107,8 @@ function getFirestore() {
   return _db;
 }
 
-const PROGRAMMES_DIR = path.resolve(
-  __dirname,
-  "..",
+const PROGRAMMES_DIR = path.join(
+  REPO_ROOT,
   "requirements",
   "content",
   "programmes",
@@ -708,6 +744,23 @@ async function main() {
     console.log("No programmes directory found at:", PROGRAMMES_DIR);
     console.log("Nothing to sync.");
     process.exit(0);
+  }
+
+  if (!DRY_RUN) {
+    const creds = (process.env.GOOGLE_APPLICATION_CREDENTIALS || "").trim();
+    if (!creds || !fs.existsSync(creds)) {
+      console.error(`
+Curriculum sync needs Firebase Admin credentials for a local run. Either:
+
+  • Put the service account JSON at .secrets/firebase-adminsdk.json
+    (or exactly one *.json in .secrets/), or
+  • Set GOOGLE_APPLICATION_CREDENTIALS to the full path of that JSON.
+
+For the usual team flow (no local key), merge to main and use GitHub Actions
+— see docs/partner-curriculum-sync.md
+`);
+      process.exit(1);
+    }
   }
 
   const programmeFolders = fs
