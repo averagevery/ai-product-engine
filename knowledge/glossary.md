@@ -40,7 +40,7 @@ Domain-specific terminology used across the Mulo platform. AI agents should use 
 | **core_lessons** | Firestore collection for hand-crafted lessons synced from the Cursor monorepo (paired `{slug}` and `{slug}--v2` documents per logical lesson). Read-only in the app. |
 | **user_lessons** | Firestore collection for AI-generated lessons created by the Maker-Checker pipeline. Read/write in the app. |
 | **screens** | Flat Firestore collection containing individual screen documents. Linked to parent lessons via `lessonId`. Distinguished by `lessonType` (`"core"` or `"user"`). |
-| **lesson_requests** | Firestore collection that triggers the Maker-Checker pipeline via `onDocumentCreated`. Each new document causes two independent runs (v1 + v2); outcomes are merged into `v1_lessonId`, `v2_lessonId`, and `status` (`completed` / `partial` / `failed_compliance`). |
+| **lesson_requests** | Firestore collection that triggers the Maker-Checker pipeline via `onDocumentCreated`. Each new document causes two independent runs **in parallel** (v2_interactive primary, v1_swipe fallback); outcomes are merged into `v1_lessonId`, `v2_lessonId`, and `status` (`completed` / `partial` / `failed_compliance`). |
 | **agent_logs** | Audit trail collection for all agent failures and loop iterations. |
 | **compliance_audit** | A mandatory field on every lesson document proving it passed FCA validation. Contains status, reasoning, attempt number, and timestamp. |
 | **ATMI** | Apply to My Money. The personalised financial insight feature. Day 1: separate card with hardcoded constants. Day 2: per-question section in Learn More powered by Open Banking data. |

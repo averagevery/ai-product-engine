@@ -27,7 +27,7 @@ Both paths always produce two lessons -- one v1_swipe and one v2_interactive -- 
 | Path | Firestore Collection | Source |
 |------|---------------------|--------|
 | Hand-crafted curriculum | `core_lessons` | Paired markdown files (`{slug}.md` + `{slug}.v2.md`) synced via `npm run sync-curriculum`. v2 doc ID: `{slug}--v2`. |
-| AI-generated lessons | `user_lessons` | Maker-Checker pipeline runs twice per request (once per format), writes two independent docs + screens. |
+| AI-generated lessons | `user_lessons` | Maker-Checker pipeline runs twice **in parallel** per request (`v2_interactive` primary, `v1_swipe` fallback); writes two independent docs + screens. One format failing does not block the other. |
 
 Both write screens to a single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`) and `lessonFormat` (`"v1_swipe"` or `"v2_interactive"`).
 
@@ -53,7 +53,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 - docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos.
 
 ### functions/ -- Backend Engine
-- functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes both v1 and v2 to `user_lessons`). timeoutSeconds: 240, memory: 1GiB.
+- functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes both v2 and v1 to `user_lessons` in parallel via `Promise.allSettled`). timeoutSeconds: 240, memory: 1GiB.
 - functions/prompts/ -- Gemini AI agent prompt definitions.
 - functions/docs/ -- Single source of truth for agent behavioural rules, compliance constraints, and design guidelines. Edit here to change agent behaviour at runtime. Rule: create-agent.mdc.
 
@@ -87,7 +87,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-programme, create-lesson, create-feature, create-agent, create-blueprint, create-api-spec, update-docs, repo-standards, design-system, use-knowledge-base.
 
 ## Core Architecture: 9-Agent Maker-Checker Loop
-1. Every lesson request triggers two independent Maker-Checker runs -- one for v1_swipe, one for v2_interactive.
+1. Every lesson request triggers two independent Maker-Checker runs **in parallel** -- v2_interactive (primary) and v1_swipe (fallback). A hard error in one run does not block the other.
 2. Creator Agent drafts content as structured JSON. Routes to `functions/docs/lesson_guidelines.md` (v1_swipe) or `functions/docs/lesson_guidelines_v2.md` (v2_interactive).
 3. Compliance Agent validates against FCA rules in a for loop (MAX_ATTEMPTS = 3). For v2_interactive, traverses nested `learnMore` objects.
 4. Only "status": "PASS" allows a Firestore write to `user_lessons` + `screens`.

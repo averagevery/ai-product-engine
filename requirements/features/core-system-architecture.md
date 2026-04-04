@@ -56,7 +56,7 @@ Each path produces **two** lesson documents per logical lesson -- one `v1_swipe`
 | Path | Collection | Source | Mutability in App |
 |------|-----------|--------|-------------------|
 | Hand-crafted curriculum | `core_lessons` | Paired markdown in Cursor (`{slug}.md` + `{slug}.v2.md`), synced via `npm run sync-curriculum`. V2 Firestore doc id: `{slug}--v2`. | Read-only |
-| AI-generated lessons | `user_lessons` | Maker-Checker runs **twice** per `lesson_requests` doc (v1 then v2); two auto IDs + two screen sets | Read/write |
+| AI-generated lessons | `user_lessons` | Maker-Checker runs **twice in parallel** per `lesson_requests` doc (`v2_interactive` primary, `v1_swipe` fallback); two auto IDs + two screen sets | Read/write |
 
 Both paths write screens to the single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`) and `lessonFormat`.
 
@@ -64,20 +64,20 @@ Both paths write screens to the single flat `screens` collection, distinguished 
 
 ## The Maker-Checker Pipeline (AI-Generated Lessons)
 
-Each `lesson_requests` document triggers **two independent** Maker-Checker runs: first `v1_swipe`, then `v2_interactive`. Each run has its own Creator + Compliance retry loop (MAX_ATTEMPTS = 3) and its own `commitPassBatch()` (one `user_lessons` doc + N `screens` docs). When both runs finish, `lesson_requests` is updated once with combined status and both lesson IDs.
+Each `lesson_requests` document triggers **two independent** Maker-Checker runs **in parallel** (`Promise.allSettled`): **`v2_interactive` first in code (primary)** and **`v1_swipe` (fallback swipe format)**. A hard error in one run does **not** block the other. Each run has its own Creator + Compliance retry loop (MAX_ATTEMPTS = 3) and its own `commitPassBatch()` (one `user_lessons` doc + N `screens` docs). When both runs finish, `lesson_requests` is updated once with combined status and both lesson IDs.
 
 ```
 API Request (lesson_requests/{requestId})
     │
     ├──────────────────────────────┐
     ▼                              ▼
- Run A: v1_swipe              Run B: v2_interactive
+ Run A: v2_interactive        Run B: v1_swipe
  Creator → Compliance         Creator → Compliance
  (retry up to 3)             (retry up to 3)
     │                              │
     ▼                              ▼
  user_lessons/{id1}           user_lessons/{id2}
- screens/* (Shape A)         screens/* (Shape B)
+ screens/* (Shape B)         screens/* (Shape A)
     │                              │
     └──────────────┬───────────────┘
                    ▼
@@ -88,7 +88,7 @@ API Request (lesson_requests/{requestId})
 ### Loop Rules
 
 1. Triggered by a Firestore `onDocumentCreated` event on `lesson_requests/{requestId}`
-2. The Cloud Function runs the loop **twice** (v1_swipe, then v2_interactive). For each format, the Creator Agent (Maker) drafts a lesson as structured JSON using that format's guideline file
+2. The Cloud Function runs the loop **twice in parallel** (v2_interactive and v1_swipe). For each format, the Creator Agent (Maker) drafts a lesson as structured JSON using that format's guideline file
 3. The Compliance Agent (Checker) validates against FCA Consumer Duty rules
 4. If `"status": "FAIL"`, the reasoning is fed back to the Creator Agent for that format only
 5. If `"status": "PASS"` for a format, that draft proceeds to `commitPassBatch()` for that format (does not update `lesson_requests` yet)
@@ -105,7 +105,8 @@ API Request (lesson_requests/{requestId})
 | Both formats exhaust attempts without PASS | `status: "failed_compliance"` | Yes (per format that failed) |
 | One format PASS, one FAIL | `status: "partial"`, with one of `v1_lessonId` / `v2_lessonId` set | Fail side logged as above |
 | Both formats PASS | `status: "completed"`, both lesson IDs set | No FAIL logs for that request |
-| Unrecoverable JS error (entire function) | `status: "error"`, `error_message` | Yes: `status: "error"`, `errorMessage` |
+| Unrecoverable JS error (entire function, outside per-format runs) | `status: "error"`, `error_message` | Yes: `status: "error"`, `errorMessage` |
+| Unhandled JS error inside one format run only | Other format still completes; failed format treated as FAIL (`attempts` may be 0) | Optional: log the rejection reason for that format |
 
 ---
 

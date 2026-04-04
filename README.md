@@ -21,7 +21,7 @@ Cursor Monorepo (GitOps)
     │                                (v1 + v2 per lesson; hand-crafted, read-only in app)
     │
     └── firebase deploy ──► Cloud Functions ──► Firestore: user_lessons + screens
-                              (Maker-Checker: both formats per request; read/write in app)
+                              (Maker-Checker: v2 + v1 in parallel per request; read/write in app)
                                         │
                                         ▼
                               FlutterFlow App (reads both)
@@ -32,7 +32,7 @@ Two lesson paths feed the same `screens` collection, distinguished by `lessonTyp
 | Path | Collection | Source |
 |------|-----------|--------|
 | Hand-crafted curriculum | `core_lessons` | Written in Cursor as paired markdown files (`{slug}.md` + `{slug}.v2.md`), synced via `npm run sync-curriculum` |
-| AI-generated lessons | `user_lessons` | Created by the Maker-Checker pipeline -- each request automatically generates both formats |
+| AI-generated lessons | `user_lessons` | Maker-Checker runs **both formats in parallel** (v2 primary, v1 fallback); one run cannot block the other |
 
 ### `requirements/` -- The Source of Truth for Product Specs
 

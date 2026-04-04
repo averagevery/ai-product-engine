@@ -65,7 +65,7 @@ Each question has three layers:
 
 ### A/B Testing Architecture
 
-Each lesson exists in **both** formats in Firestore (`lessonFormat` on each `core_lessons` / `user_lessons` / `screens` document identifies the variant). The app chooses which document to open for a given session or experiment. The Maker-Checker pipeline runs Creator + Compliance **twice** per `lesson_requests` doc (v1 then v2). The Telemetry Agent tracks per-format metrics to inform which variant the product should surface by default.
+Each lesson exists in **both** formats in Firestore (`lessonFormat` on each `core_lessons` / `user_lessons` / `screens` document identifies the variant). The app chooses which document to open for a given session or experiment. The Maker-Checker pipeline runs Creator + Compliance **twice in parallel** per `lesson_requests` doc (`v2_interactive` primary, `v1_swipe` fallback; one run cannot block the other). The Telemetry Agent tracks per-format metrics to inform which variant the product should surface by default.
 
 ### Database Contract (Firestore)
 

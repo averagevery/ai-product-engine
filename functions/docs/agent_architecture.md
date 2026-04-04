@@ -18,7 +18,7 @@ When acting as the Lead Engineer for Mulo, Cursor AI must adhere to the followin
 2. **The Maker-Checker Rule:** Content generation MUST always happen in a `while` loop alongside a Compliance Agent. Content can only be saved to Firestore if the Compliance Agent returns a `"status": "PASS"`.
 3. **Audit Trails:** Every database write to the `user_lessons` collection must include a `compliance_audit` field containing the Compliance Agent's reasoning, and a timestamp. Failed drafts must be logged to the `agent_logs` collection.
 4. **Batch Writes:** Lessons are split across two collections. Use a Firestore Batch Write to save the parent document to `user_lessons` and the individual screens to the `screens` collection.
-5. **Lesson Format Routing:** Each `lesson_requests` trigger runs the Maker-Checker loop **twice** -- once for `v1_swipe` and once for `v2_interactive`. For each run, the Creator Agent reads `functions/docs/lesson_guidelines.md` (v1) or `functions/docs/lesson_guidelines_v2.md` (v2). An optional `lessonFormat` field on the request document (if present) does **not** select a single format; both always generate.
+5. **Lesson Format Routing:** Each `lesson_requests` trigger runs the Maker-Checker loop **twice in parallel** (`Promise.allSettled`) -- `v2_interactive` (primary) and `v1_swipe` (fallback). For each run, the Creator Agent reads `functions/docs/lesson_guidelines_v2.md` (v2) or `functions/docs/lesson_guidelines.md` (v1). A failure in one run does not block the other. An optional `lessonFormat` field on the request document (if present) does **not** select a single format; both always generate.
 
 ## 3. Database Schema (Firestore)
 

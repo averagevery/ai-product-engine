@@ -85,7 +85,7 @@ FCA-specific rules that apply to this feature:
 
 | File | Purpose |
 |------|---------|
-| `functions/src/maker_checker_loop.js` | Core pipeline: two Maker-Checker runs per request (v1 + v2), then updates `lesson_requests` |
+| `functions/src/maker_checker_loop.js` | Core pipeline: two Maker-Checker runs per request in parallel (v2 primary + v1 fallback), then updates `lesson_requests` |
 | `functions/prompts/creator_agent.js` | Prompt builder for the Creator Agent |
 | `functions/prompts/compliance_agent.js` | Prompt builder for the Compliance Agent |
 | Goal/programme navigation and UI | Not yet built |
