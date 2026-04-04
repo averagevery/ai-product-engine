@@ -68,5 +68,8 @@ node_modules/
 # dataconnect generated files
 .dataconnect
 
+# Local scratch / extraction output (do not commit)
+_extracted/
+
 
 functions/node_modules/

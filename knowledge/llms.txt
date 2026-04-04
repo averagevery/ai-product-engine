@@ -5,8 +5,10 @@
 Help millions of people in the UK make better financial decisions through simple, personalised education.
 
 ## Product Model: See -> Learn -> Act
-- Layer 1 (SEE): Open Banking financial overview.
-- Layer 2 (LEARN): 8-11 screen micro-lessons, 3-5 mins each.
+- Layer 1 (SEE): Open Banking financial overview (Day 2 -- AISP integration with TrueLayer/Finexer).
+- Layer 2 (LEARN): Goal-driven micro-lessons in two A/B-tested formats:
+  - Format A (v1_swipe): 8-11 screen linear flow, 3-5 mins each.
+  - Format B (v2_interactive): 5-question drill-down with feedback banners and nested Learn More lightboxes.
 - Layer 3 (ACT): Compare products and switch providers. Mulo earns referral commissions.
 
 ## Hybrid Architecture
@@ -18,27 +20,32 @@ Four layers work together:
 3. **AI Engine** -- Maker-Checker pipeline (Creator + Compliance agents) running inside Cloud Functions.
 4. **FlutterFlow App** -- read-only frontend that queries Firestore.
 
-### Two Lesson Paths
+### Two Lesson Paths (Always-Both-Formats)
+
+Both paths always produce two lessons -- one v1_swipe and one v2_interactive -- with the same name/metadata but different screen shapes.
 
 | Path | Firestore Collection | Source |
 |------|---------------------|--------|
-| Hand-crafted curriculum | `core_lessons` | Written as markdown in Cursor, synced via `npm run sync-curriculum` |
-| AI-generated lessons | `user_lessons` | Created by the Maker-Checker pipeline on user request |
+| Hand-crafted curriculum | `core_lessons` | Paired markdown files (`{slug}.md` + `{slug}.v2.md`) synced via `npm run sync-curriculum`. v2 doc ID: `{slug}--v2`. |
+| AI-generated lessons | `user_lessons` | Maker-Checker pipeline runs twice per request (once per format), writes two independent docs + screens. |
 
-Both write screens to a single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`).
+Both write screens to a single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`) and `lessonFormat` (`"v1_swipe"` or `"v2_interactive"`).
 
 ## Repository Layout
 
 ### requirements/ -- Product Specifications
-- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (metadata) and sibling lesson `.md` files. Template: templates/template-programme.md. Rule: create-programme.mdc.
-- requirements/content/programmes/{programme-name}/{lesson-name}.md -- Hand-crafted core lessons with YAML frontmatter and ## Screen headings. Synced to `core_lessons` via `npm run sync-curriculum`. Template: templates/template-core-lesson.md.
+- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (metadata) and sibling lesson `.md` files. Template: templates/template-programme.md. Rule: create-programme.mdc. Example folder: `first-home-foundations/` (paired `first-home-deposits-explained.md` + `.v2.md`).
+- requirements/content/programmes/{programme-name}/{lesson-name}.md -- Hand-crafted v1 core lessons with YAML frontmatter and ## Screen headings. Template: templates/template-core-lesson.md.
+- requirements/content/programmes/{programme-name}/{lesson-name}.v2.md -- Hand-crafted v2 core lessons with ## Question headings and nested learnMore. Template: templates/template-core-lesson-v2.md. Both synced to `core_lessons` via `npm run sync-curriculum`.
 - requirements/features/ -- App UX/UI feature specs (natural-language-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
 
 ### knowledge/ -- Fact Base (manually curated)
 - knowledge/personas.md -- Five target personas: Sarah, James, Aisha, Tom, Chloe.
-- knowledge/fca-regulations.md -- FCA Consumer Duty compliance boundaries.
-- knowledge/glossary.md -- Domain-specific terminology.
+- knowledge/fca-regulations.md -- FCA Consumer Duty compliance boundaries (hard prohibitions, Consumer Duty obligations, disclaimers).
+- knowledge/glossary.md -- Domain-specific terminology (architecture, data, financial education terms).
 - knowledge/market-context.md -- UK financial education market landscape.
+- knowledge/onboarding-routing.md -- 8-screen onboarding flow, goal routing, experience routing, Day 2 advanced routing.
+- knowledge/day2-open-banking.md -- Open Banking data principles, 11 signal categories, 111 data points, agent architecture.
 - knowledge/llms.txt -- This file. Machine-readable project summary.
 
 ### docs/ -- Project Documentation
@@ -46,19 +53,21 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 - docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos.
 
 ### functions/ -- Backend Engine
-- functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes to `user_lessons`).
+- functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes both v1 and v2 to `user_lessons`). timeoutSeconds: 240, memory: 1GiB.
 - functions/prompts/ -- Gemini AI agent prompt definitions.
 - functions/docs/ -- Single source of truth for agent behavioural rules, compliance constraints, and design guidelines. Edit here to change agent behaviour at runtime. Rule: create-agent.mdc.
 
 ### scripts/ -- Utility Scripts
-- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`.
-- Run via: `npm run sync-curriculum` (root package.json).
+- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`. Handles both `.md` (v1, parseScreens) and `.v2.md` (v2, parseV2Screens) files. Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one (avoids Admin SDK "unable to detect a project ID"). Requires `GOOGLE_APPLICATION_CREDENTIALS` or Application Default Credentials.
+- Run via: `npm run sync-curriculum` (root package.json). `npm run validate-curriculum` runs parsers + validation with `--dry-run` (no Firestore).
 
 ### templates/ -- Document Templates
 - templates/template-programme.md -- Programme metadata template (saved as `programme.md` inside a programme folder).
-- templates/template-core-lesson.md -- Hand-crafted core lesson template (YAML frontmatter + ## Screen headings).
+- templates/template-core-lesson.md -- Hand-crafted v1_swipe core lesson template (YAML frontmatter + ## Screen headings).
+- templates/template-core-lesson-v2.md -- Hand-crafted v2_interactive core lesson template (## Question headings + nested learnMore).
 - templates/template-lesson.md -- Lesson editorial brief template (input for the AI Maker-Checker pipeline to generate `user_lessons`).
 - templates/template-feature.md -- App feature specification template.
+- templates/template-agent.md -- Agent behavioural rule document template (used by create-agent.mdc).
 - templates/template-service-blueprint.md -- Service blueprint template.
 
 ### .cursor/rules/ -- AI Instruction Layer
@@ -68,7 +77,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 - 04-folder-integrity.mdc -- Strict folder structure enforcement.
 - 05-update-docs.mdc -- Doc sync protocol: keeps README.md, llms.txt, and folder rules in sync as part of every task.
 - create-programme.mdc -- Generate programme folders with metadata and lesson files.
-- create-lesson.mdc -- Generate lesson editorial briefs (for AI pipeline) or core lesson files (for sync).
+- create-lesson.mdc -- Generate lesson editorial briefs (for AI pipeline) or core lesson files in both formats (Option B always generates {slug}.md + {slug}.v2.md).
 - create-feature.mdc -- Generate feature specs.
 - create-agent.mdc -- Create or update agent rules in functions/docs/.
 - create-blueprint.mdc -- Generate service blueprints mapping user journeys.
@@ -78,23 +87,26 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-programme, create-lesson, create-feature, create-agent, create-blueprint, create-api-spec, update-docs, repo-standards, design-system, use-knowledge-base.
 
 ## Core Architecture: 9-Agent Maker-Checker Loop
-1. Creator Agent drafts content as structured JSON.
-2. Compliance Agent validates against FCA rules in a for loop (MAX_ATTEMPTS = 3).
-3. Only "status": "PASS" allows a Firestore write to `user_lessons` + `screens`.
-4. Every write includes compliance_audit field with reasoning and timestamp.
-5. Failed drafts logged to agent_logs collection.
-6. Screens include a `lessonType: "user"` field to distinguish from core content.
+1. Every lesson request triggers two independent Maker-Checker runs -- one for v1_swipe, one for v2_interactive.
+2. Creator Agent drafts content as structured JSON. Routes to `functions/docs/lesson_guidelines.md` (v1_swipe) or `functions/docs/lesson_guidelines_v2.md` (v2_interactive).
+3. Compliance Agent validates against FCA rules in a for loop (MAX_ATTEMPTS = 3). For v2_interactive, traverses nested `learnMore` objects.
+4. Only "status": "PASS" allows a Firestore write to `user_lessons` + `screens`.
+5. Every write includes compliance_audit field with reasoning and timestamp.
+6. Failed drafts logged to agent_logs collection with `lessonFormat` field.
+7. `lesson_requests` records both outcomes: `v1_lessonId`, `v2_lessonId`, `attempts_v1`, `attempts_v2`, `v1_status`, `v2_status`. Status is `"completed"` (both pass), `"partial"` (one passes), or `"failed_compliance"` (both fail). An optional legacy `lessonFormat` field on the request document does not limit generation to one format.
+8. Cloud Function options: timeoutSeconds 240, memory 1GiB (`functions/src/maker_checker_loop.js`).
+9. Screens schema has two shapes: Shape A (v1_swipe) and Shape B (v2_interactive). Full schema in `requirements/features/core-system-architecture.md`.
 
 ## Curriculum Sync (Core Lessons)
-1. Author writes lesson markdown in requirements/content/programmes/{programme-name}/.
-2. Each lesson file has YAML frontmatter (metadata) and ## Screen N: Type headings (screen content).
-3. Run `npm run sync-curriculum` to push to Firestore `core_lessons` + `screens` (with `lessonType: "core"`).
+1. Author writes paired lesson markdown in requirements/content/programmes/{programme-name}/: `{slug}.md` (v1) and `{slug}.v2.md` (v2).
+2. v1 files use YAML frontmatter + `## Screen N: Type` headings. v2 files use YAML frontmatter + `## Question N:` headings with nested `### learnMore` sections.
+3. Run `npm run sync-curriculum` to push both to Firestore `core_lessons` + `screens` (with `lessonType: "core"`). v2 doc ID: `{slug}--v2`.
 4. The sync is idempotent -- it clears existing core screens before re-syncing.
 
 ## Non-Negotiable Constraints
 - Deployment region: europe-west2 (London).
 - Language: Strict UK English.
 - FCA: Never provide regulated financial advice.
-- Design: Background #0A0A1A, Primary #3733E5, CTA mint green, DM Sans font.
-- Word limits: Headlines 7, Body 25, Feedback 15.
+- Design: Background #0A0A1A, Primary #5753FF, CTA mint green, DM Sans font.
+- Word limits: Headlines 7, Body 25, Feedback banners (v2) 30, Feedback screens (v1) 15.
 - All generated documents must include an AI Source Prompt block at the top.

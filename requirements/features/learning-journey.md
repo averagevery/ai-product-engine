@@ -58,8 +58,9 @@ Lesson (1) ──► Screen (many, 8-11)
 |------------|------------|-----------------|
 | `goals` | READ | `goalId`, `name`, `description`, `programmeIds` (array of references) |
 | `programmes` | READ | `programmeId`, `goalId`, `name`, `description`, `lessonCount`, `estimatedTime`, `difficulty`, `order` |
-| `lessons` | READ | `lessonId`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `goal`, `goalOrder`, `compliance_audit`, `human_approved`, `version`, `created_at` |
-| `screens` | READ | `lessonId`, `screenNumber`, `screenType`, `headline`, `paragraph`, `question`, `optionA`-`optionD`, `questionAnswer`, `feedbackCorrect`, `feedbackIncorrect`, `keyTakeaway1`-`keyTakeaway3`, `LottieSuggestion`, `lottieURL` |
+| `core_lessons` | READ | `lessonId`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `lessonFormat`, `screenCount`, `syncedAt` |
+| `user_lessons` | READ | `lessonId`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `lessonFormat`, `goal`, `goalOrder`, `compliance_audit`, `human_approved`, `version`, `created_at` |
+| `screens` | READ | Shape depends on parent lesson's `lessonFormat`. v1_swipe: `lessonId`, `screenNumber`, `screenType`, `headline`, `paragraph`, `question`, `optionA`-`optionD`, `questionAnswer`, `feedbackCorrect`, `feedbackIncorrect`, `keyTakeaway1`-`keyTakeaway3`, `LottieSuggestion`, `lottieURL`. v2_interactive: `lessonId`, `screenNumber`, `questionText`, `emoji`, `options`, `correctIndex`, `feedbackCorrect`, `feedbackIncorrect`, `learnMore`. Full schema in `core-system-architecture.md`. |
 | `lesson_history` | WRITE | `lessonId`, `userId`, `completedAt`, `screenProgress` (array of screen IDs viewed in order), `quizResults` (array of `{ questionIndex, selectedAnswer, correct }`), `thumbsUp` (boolean), `dropOffScreen` (number or null) |
 | `users` | READ | `goals` (array -- from onboarding), `confidenceLevel` |
 
@@ -76,7 +77,7 @@ FCA-specific rules that apply to this feature:
 
 * **Data Failure:** If the Firestore read for goals, programmes, or lessons fails, show a skeleton loading state with a retry option. Do not show error codes or technical messages.
 * **Compliance Failure:** If a lesson's `compliance_audit` is missing or has `status: "FAIL"`, do not render the lesson. Show a placeholder: "This lesson is being reviewed. Check back soon." Log the issue for the content team.
-* **Agent Failure:** If the Maker-Checker pipeline fails to generate a lesson (status `failed_compliance` or `error` on `lesson_requests`), the lesson does not appear in the programme view. The user sees only successfully generated and compliance-passed lessons.
+* **Agent Failure:** If **both** formats fail (`failed_compliance` or `error` on `lesson_requests`), the lesson does not appear. If status is `partial`, show the passing variant only (use `v1_lessonId` or `v2_lessonId` whichever is non-null, per product rules). The user should never see a lesson document that lacks a PASS `compliance_audit`.
 * **Empty Programme:** If a programme has zero completed lessons (all still in generation or failed), show a "Coming soon" state on the programme card rather than an empty list.
 * **Partial Progress Loss:** If `lesson_history` write fails on lesson completion, retry silently. If retry fails, save locally and sync on next app launch. Never show the user an error for a telemetry write failure.
 
@@ -84,7 +85,7 @@ FCA-specific rules that apply to this feature:
 
 | File | Purpose |
 |------|---------|
-| `functions/src/maker_checker_loop.js` | Core pipeline that generates lesson content (Creator -> Compliance -> Firestore) |
+| `functions/src/maker_checker_loop.js` | Core pipeline: two Maker-Checker runs per request (v1 + v2), then updates `lesson_requests` |
 | `functions/prompts/creator_agent.js` | Prompt builder for the Creator Agent |
 | `functions/prompts/compliance_agent.js` | Prompt builder for the Compliance Agent |
 | Goal/programme navigation and UI | Not yet built |
@@ -92,6 +93,6 @@ FCA-specific rules that apply to this feature:
 ## 8. Notes
 
 * The `goals` and `programmes` collections do not exist in Firestore yet. They need to be created as part of this feature's implementation. Programme documents should reference their parent goal and contain an ordered list of lesson references.
-* The `lessons` collection already exists and is populated by the Maker-Checker pipeline. The key link is adding a `programmeId` field to lessons so they can be grouped under a programme. Currently, lessons have `moduleName` which could serve as the programme reference, but a formal `programmeId` foreign key is cleaner.
+* The `user_lessons` collection already exists and is populated by the Maker-Checker pipeline. The key link is adding a `programmeId` field to user lessons so they can be grouped under a programme. Currently, user lessons have `moduleName` which could serve as the programme reference, but a formal `programmeId` foreign key is cleaner. Hand-crafted lessons live in `core_lessons` and already have `programmeId`.
 * Sequential lesson unlocking is a product decision. If the team later wants to allow non-linear access (e.g., letting confident users skip ahead), this should be controlled by a `sequentialOnly` flag on the programme document.
 * The `lesson_history` schema is already specified in `core-system-architecture.md` but the collection is not yet written to by any backend code. This feature's client-side implementation will be the first writer.

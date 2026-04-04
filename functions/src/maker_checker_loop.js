@@ -28,32 +28,22 @@ const creatorModel = genAI.getGenerativeModel({ model: CREATOR_MODEL_NAME });
 const complianceModel = genAI.getGenerativeModel({ model: COMPLIANCE_MODEL_NAME });
 
 const MAX_ATTEMPTS = 3;
+const BOTH_FORMATS = ["v1_swipe", "v2_interactive"];
 
 /**
- * Core Maker-Checker loop.
- * Runs Creator and Compliance agents until PASS or hard failure.
- *
- * @param {import("firebase-admin/firestore").QueryDocumentSnapshot} snap
- * @param {{requestId: string}} context
+ * Run the Maker-Checker loop for a single format.
+ * Returns { lessonId, attempts, status, reasoning } or null on hard failure.
  */
-async function runMakerChecker(snap, context) {
-  const data = snap.data() || {};
-  const requestId = context.requestId || snap.id;
-
-  const ownerID = data.userID || "public";
-
-  const [creatorContext, complianceRules] = await Promise.all([
-    loadCreatorContext(),
-    loadComplianceRules(),
-  ]);
+async function runSingleFormat(data, requestId, ownerID, lessonFormat, complianceRules) {
+  const creatorContext = await loadCreatorContext(lessonFormat);
+  const requestWithFormat = {...data, lessonFormat};
 
   let lastComplianceReason = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    // ---- Creator Agent ----
     const creatorPrompt = buildCreatorPrompt(
       {
-        request: data,
+        request: requestWithFormat,
         requestId,
         attempt,
         lastComplianceReason,
@@ -68,13 +58,12 @@ async function runMakerChecker(snap, context) {
       typeof creatorResponse.text === "function"
         ? creatorResponse.text()
         : creatorResponse.text || "";
-    const lessonDraft = parseCreatorResponse(creatorText);
+    const lessonDraft = parseCreatorResponse(creatorText, lessonFormat);
 
-    // ---- Compliance Agent ----
     const compliancePrompt = buildCompliancePrompt(
       lessonDraft,
       {
-        request: data,
+        request: requestWithFormat,
         requestId,
         attempt,
       },
@@ -94,20 +83,21 @@ async function runMakerChecker(snap, context) {
     const normalisedStatus = (status || "").toUpperCase();
 
     if (normalisedStatus === "PASS") {
-      await commitPassBatch({
+      const lessonId = await commitPassBatch({
         requestId,
         ownerID,
         requestData: data,
         lessonDraft,
         reasoning,
         attempt,
+        lessonFormat,
       });
-      return;
+      return {lessonId, attempts: attempt, status: "PASS", reasoning};
     }
 
-    // ---- FAIL path for this attempt ----
     await logAgentAttempt({
       requestId,
+      lessonFormat,
       status: "FAIL",
       attempt,
       lessonDraft,
@@ -115,36 +105,68 @@ async function runMakerChecker(snap, context) {
     });
 
     if (attempt === MAX_ATTEMPTS) {
-      // Hard failure after 3 failed compliance checks.
       await logFinalFailure({
         requestId,
+        lessonFormat,
         totalAttempts: attempt,
         lastComplianceReason: reasoning,
       });
-
-      await db.collection("lesson_requests").doc(requestId).update({
-        status: "failed_compliance",
-        attempts: attempt,
-        lastComplianceReason: reasoning,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-
-      return;
+      return {lessonId: null, attempts: attempt, status: "FAIL", reasoning};
     }
   }
+
+  return {lessonId: null, attempts: MAX_ATTEMPTS, status: "FAIL", reasoning: lastComplianceReason};
 }
 
 /**
- * Commit a PASS batch: lessons + screens + lesson_requests update.
- *
- * @param {{
- *  requestId: string;
- *  ownerID: string;
- *  requestData: any;
- *  lessonDraft: {lessonMetadata?: any; screens?: any[]};
- *  reasoning: string;
- *  attempt: number;
- * }} params
+ * Core Maker-Checker loop -- always generates BOTH v1_swipe and v2_interactive.
+ * Each format runs its own independent pipeline. If one passes and the other
+ * fails, the passing one is still written.
+ */
+async function runMakerChecker(snap, context) {
+  const data = snap.data() || {};
+  const requestId = context.requestId || snap.id;
+  const ownerID = data.userID || "public";
+
+  const complianceRules = await loadComplianceRules();
+
+  const results = {};
+  for (const format of BOTH_FORMATS) {
+    results[format] = await runSingleFormat(
+      data, requestId, ownerID, format, complianceRules,
+    );
+  }
+
+  const v1 = results.v1_swipe;
+  const v2 = results.v2_interactive;
+
+  const bothPassed = v1.status === "PASS" && v2.status === "PASS";
+  const anyPassed = v1.status === "PASS" || v2.status === "PASS";
+
+  let overallStatus;
+  if (bothPassed) {
+    overallStatus = "completed";
+  } else if (anyPassed) {
+    overallStatus = "partial";
+  } else {
+    overallStatus = "failed_compliance";
+  }
+
+  await db.collection("lesson_requests").doc(requestId).update({
+    status: overallStatus,
+    v1_lessonId: v1.lessonId || null,
+    v1_status: v1.status,
+    attempts_v1: v1.attempts,
+    v2_lessonId: v2.lessonId || null,
+    v2_status: v2.status,
+    attempts_v2: v2.attempts,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Commit a PASS batch for a single format: user_lessons + screens.
+ * Returns the auto-generated lesson document ID.
  */
 async function commitPassBatch(params) {
   const {
@@ -154,6 +176,7 @@ async function commitPassBatch(params) {
     lessonDraft,
     reasoning,
     attempt,
+    lessonFormat,
   } = params;
 
   const batch = db.batch();
@@ -165,7 +188,7 @@ async function commitPassBatch(params) {
     : [];
 
   if (screens.length === 0) {
-    throw new Error("Creator Agent returned no screens.");
+    throw new Error(`Creator Agent (${lessonFormat}) returned no screens.`);
   }
 
   const lessonName =
@@ -176,6 +199,7 @@ async function commitPassBatch(params) {
     category: requestData.category || "Custom",
     moduleName: requestData.moduleName || null,
     lessonName,
+    lessonFormat,
     lessonLevel:
       lessonMetadata.difficulty_level || requestData.lessonLevel || null,
     lessonTime:
@@ -199,64 +223,64 @@ async function commitPassBatch(params) {
   screens.forEach((screen, index) => {
     const screenRef = db.collection("screens").doc();
 
-    batch.set(screenRef, {
+    const commonFields = {
       userID: ownerID,
       lessonId: lessonRef.id,
       lessonType: "user",
+      lessonFormat,
       lessonName,
       requestID: requestId,
       learningStyle: requestData.learningStyle || null,
       screenNumber: index + 1,
-      screenType: screen.screenType || null,
-      headline: screen.headline || "",
-      paragraph: screen.paragraph || "",
-      question: screen.question || "",
-      optionA: screen.optionA || "",
-      optionB: screen.optionB || "",
-      optionC: screen.optionC || "",
-      optionD: screen.optionD || "",
-      questionAnswer: screen.questionAnswer || "",
-      feedbackCorrect: screen.feedbackCorrect || "",
-      feedbackIncorrect: screen.feedbackIncorrect || "",
-      keyTakeaway1: screen.keyTakeaway1 || "",
-      keyTakeaway2: screen.keyTakeaway2 || "",
-      keyTakeaway3: screen.keyTakeaway3 || "",
-      LottieSuggestion: screen.LottieSuggestion || "",
-      lottieURL: screen.lottieURL || "",
-    });
-  });
+    };
 
-  batch.update(db.collection("lesson_requests").doc(requestId), {
-    status: "completed",
-    lessonId: lessonRef.id,
-    attempts: attempt,
-    compliance_summary: {
-      status: "PASS",
-      reasoning,
-      checkedAt: FieldValue.serverTimestamp(),
-    },
-    updatedAt: FieldValue.serverTimestamp(),
+    const shapeFields =
+      lessonFormat === "v2_interactive"
+        ? {
+            questionText: screen.questionText || "",
+            emoji: screen.emoji || "",
+            options: Array.isArray(screen.options) ? screen.options : [],
+            correctIndex:
+              typeof screen.correctIndex === "number" ? screen.correctIndex : 0,
+            feedbackCorrect: screen.feedbackCorrect || "",
+            feedbackIncorrect: screen.feedbackIncorrect || "",
+            learnMore: screen.learnMore || null,
+          }
+        : {
+            screenType: screen.screenType || null,
+            headline: screen.headline || "",
+            paragraph: screen.paragraph || "",
+            question: screen.question || "",
+            optionA: screen.optionA || "",
+            optionB: screen.optionB || "",
+            optionC: screen.optionC || "",
+            optionD: screen.optionD || "",
+            questionAnswer: screen.questionAnswer || "",
+            feedbackCorrect: screen.feedbackCorrect || "",
+            feedbackIncorrect: screen.feedbackIncorrect || "",
+            keyTakeaway1: screen.keyTakeaway1 || "",
+            keyTakeaway2: screen.keyTakeaway2 || "",
+            keyTakeaway3: screen.keyTakeaway3 || "",
+            LottieSuggestion: screen.LottieSuggestion || "",
+            lottieURL: screen.lottieURL || "",
+          };
+
+    batch.set(screenRef, {...commonFields, ...shapeFields});
   });
 
   await batch.commit();
+  return lessonRef.id;
 }
 
 /**
  * Log a single Maker-Checker attempt to agent_logs.
- *
- * @param {{
- *  requestId: string;
- *  status: string;
- *  attempt: number;
- *  lessonDraft: {lessonMetadata?: any; screens?: any[]};
- *  reasoning: string;
- * }} params
  */
 async function logAgentAttempt(params) {
-  const {requestId, status, attempt, lessonDraft, reasoning} = params;
+  const {requestId, lessonFormat, status, attempt, lessonDraft, reasoning} = params;
 
   await db.collection("agent_logs").add({
     requestId,
+    lessonFormat,
     status,
     attemptNumber: attempt,
     lessonDraft: {
@@ -273,18 +297,13 @@ async function logAgentAttempt(params) {
 
 /**
  * Log the final failed_compliance state to agent_logs.
- *
- * @param {{
- *  requestId: string;
- *  totalAttempts: number;
- *  lastComplianceReason: string;
- * }} params
  */
 async function logFinalFailure(params) {
-  const {requestId, totalAttempts, lastComplianceReason} = params;
+  const {requestId, lessonFormat, totalAttempts, lastComplianceReason} = params;
 
   await db.collection("agent_logs").add({
     requestId,
+    lessonFormat,
     status: "failed_compliance",
     totalAttempts,
     lastComplianceReason,
@@ -297,8 +316,8 @@ exports.makerCheckerProductEngine = onDocumentCreated(
   {
     document: "lesson_requests/{requestId}",
     region: "europe-west2",
-    timeoutSeconds: 120,
-    memory: "512MiB",
+    timeoutSeconds: 240,
+    memory: "1GiB",
   },
   async (event) => {
     const snap = event.data;
@@ -311,7 +330,6 @@ exports.makerCheckerProductEngine = onDocumentCreated(
     try {
       await runMakerChecker(snap, {requestId});
     } catch (error) {
-      // Unrecoverable error path: log and mark request as error.
       await db.collection("agent_logs").add({
         requestId,
         status: "error",
