@@ -1,0 +1,23 @@
+# Ensures living reference paths still exist (registry in scripts/check_reference_docs.js).
+# Content correctness still requires humans/agents to apply .cursor/rules/05-update-docs.mdc.
+name: Verify reference docs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - run: npm ci
+        working-directory: .
+      - run: npm run verify-reference-docs
+        working-directory: .

@@ -50,7 +50,7 @@ Ask the user which type they need if unclear.
 1. Read and use `templates/template-core-lesson-v2.md` as the document skeleton. Fill in every bracketed placeholder.
 2. Read `functions/docs/lesson_guidelines_v2.md` for v2 structure rules and word limits.
 3. Each `## Question N:` heading becomes a separate Firestore `screens` document with `lessonType: "core"`, `lessonFormat: "v2_interactive"`, and a nested `learnMore` map.
-4. The lesson must contain exactly 5 questions. Each question must challenge a different misconception. The `correctIndex` must vary across questions.
+4. The lesson must contain exactly 5 questions. Each question must challenge a different misconception. Each question must have **exactly one** clearly correct option (see `lesson_guidelines_v2.md` -- avoid two "False —" / "No —" answers to the same stem). The `correctIndex` must vary across questions.
 5. Save as `{slug}.v2.md` in the **same** programme folder as the v1 file.
 
 ## Naming Convention

@@ -10,6 +10,8 @@ alwaysApply: true
 
 This repository follows a GitOps architecture and is the single source of truth for the entire Mulo AI platform.
 
+Any change that moves, renames, or redefines **folders**, **scripts**, **rules**, **schema**, or **examples** must follow the **doc sync protocol** in `.cursor/rules/05-update-docs.mdc` (matrix + mandatory closing verification) so reference docs do not drift.
+
 ## Directory Structure
 
 - `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` (YAML frontmatter: `programmeName`, `category`, `persona`, `lessons` array with `slug` + `order`) + paired lesson files (`{slug}.md` for v1_swipe and `{slug}.v2.md` for v2_interactive). Synced to Firestore `programmes` + `core_lessons` (with `lessonOrder`) via `npm run sync-curriculum`.
@@ -17,7 +19,7 @@ This repository follows a GitOps architecture and is the single source of truth 
 - `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes AI-generated lessons to `user_lessons`.
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
 - `functions/docs/` -- Single source of truth for agent behavioural rules. Editing a file here directly changes agent runtime behaviour.
-- `scripts/` -- Utility scripts. `sync_curriculum.js` syncs curriculum markdown to Firestore. Run via `npm run sync-curriculum`.
+- `scripts/` -- Utility scripts. `sync_curriculum.js` syncs curriculum markdown to Firestore. Run via `npm run sync-curriculum`. `check_reference_docs.js` is run via `npm run verify-reference-docs` (living reference path check; see `05-update-docs.mdc`).
 - `knowledge/` -- Modular knowledge base files consumed by Cursor AI.
 - `templates/` -- Fill-in-the-blank document templates.
 - `docs/` -- Project-level documentation including `vision-and-product.md` and `CONTRIBUTING.md`.

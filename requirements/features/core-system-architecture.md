@@ -161,11 +161,11 @@ Source: `functions/index.js` and `functions/src/maker_checker_loop.js`
 
 ### Collection: `programmes`
 
-Programme metadata synced from `programme.md` YAML frontmatter. Read-only in the app. Doc ID = programme folder name (e.g. `first-home-foundations`).
+Programme metadata synced from `programme.md` YAML frontmatter. Read-only in the app. Doc ID = programme folder name (e.g. `buying-your-first-home`).
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `programmeName` | string | Display name (e.g. "First Home Foundations") |
+| `programmeName` | string | Display name (e.g. "Buying your first home") |
 | `category` | string | Financial education category |
 | `persona` | string | Target persona name |
 | `estimatedTime` | string | Total estimated time for the programme |

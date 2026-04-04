@@ -36,7 +36,7 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 ## Repository Layout
 
 ### requirements/ -- Product Specifications
-- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (YAML frontmatter with `programmeName`, `category`, `persona`, `lessons` array) and sibling lesson `.md` files. The YAML `lessons` array is the source of truth for lesson order. Template: templates/template-programme.md. Rule: create-programme.mdc. Example folder: `first-home-foundations/` (paired `first-home-deposits-explained.md` + `.v2.md`).
+- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (YAML frontmatter with `programmeName`, `category`, `persona`, `lessons` array) and sibling lesson `.md` files. The YAML `lessons` array is the source of truth for lesson order. Template: templates/template-programme.md. Rule: create-programme.mdc. Example folder: `buying-your-first-home/` (e.g. paired `first-home-deposits-explained.md` + `.v2.md`, `how-to-start-building-a-deposit.md` + `.v2.md`).
 - requirements/content/programmes/{programme-name}/{lesson-name}.md -- Hand-crafted v1 core lessons with YAML frontmatter and ## Screen headings. Template: templates/template-core-lesson.md.
 - requirements/content/programmes/{programme-name}/{lesson-name}.v2.md -- Hand-crafted v2 core lessons with ## Question headings and nested learnMore. Template: templates/template-core-lesson-v2.md. Both synced to `core_lessons` via `npm run sync-curriculum`.
 - requirements/features/ -- App UX/UI feature specs (natural-language-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
@@ -52,8 +52,8 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 
 ### docs/ -- Project Documentation
 - docs/vision-and-product.md -- Product vision, mission, and 3-layer architecture.
-- docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos.
-- docs/partner-curriculum-sync.md -- Default: merge PR to main → GitHub Action syncs `requirements/content/programmes/` to Firestore (secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow `.github/workflows/sync-curriculum.yml`). Optional local sync via `.secrets/` or env — see scripts/README.md.
+- docs/CONTRIBUTING.md -- Branch / fork / PR workflow; owner-only merges to main on GitHub Free private repos; doc sync protocol pointer (`.cursor/rules/05-update-docs.mdc`).
+- docs/partner-curriculum-sync.md -- Default: merge PR to main → GitHub Action syncs `requirements/content/programmes/` to Firestore (secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow `.github/workflows/sync-curriculum.yml`). Optional local sync via `.secrets/` or env — see scripts/README.md. PRs also run `.github/workflows/verify-reference-docs.yml` (living reference file existence).
 
 ### functions/ -- Backend Engine
 - functions/src/ -- Cloud Function execution logic (Maker-Checker loop writes both v2 and v1 to `user_lessons` in parallel via `Promise.allSettled`). timeoutSeconds: 240, memory: 1GiB.
@@ -62,7 +62,7 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 
 ### scripts/ -- Utility Scripts
 - scripts/sync_curriculum.js -- Syncs hand-crafted curriculum from requirements/content/programmes/ to Firestore: `programmes` (from `programme.md` YAML), `core_lessons` + `screens`. Sets `lessonOrder` on `core_lessons` from the `programme.md` lessons array. Skips re-write when `sourceSha256` matches and (for lessons) core screen row count matches. Prunes orphaned `programmes`, `core_lessons`, and core `screens` when removed from repo (`--no-prune` to disable; `--force` to always write). Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one. If `GOOGLE_APPLICATION_CREDENTIALS` is unset, uses `.secrets/firebase-adminsdk.json` or the only `*.json` in `.secrets/`. CI: `.github/workflows/sync-curriculum.yml` (secret `FIREBASE_SERVICE_ACCOUNT_JSON`).
-- Run via: `npm run sync-curriculum` (root package.json). `npm run validate-curriculum` runs parsers + validation with `--dry-run` (no Firestore).
+- Run via: `npm run sync-curriculum` (root package.json). `npm run validate-curriculum` runs parsers + validation with `--dry-run` (no Firestore). `npm run verify-reference-docs` checks that living reference files in `.cursor/rules/05-update-docs.mdc` still exist (`scripts/check_reference_docs.js`).
 
 ### templates/ -- Document Templates
 - templates/template-programme.md -- Programme metadata template (saved as `programme.md` inside a programme folder).
@@ -78,7 +78,7 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 - 02-use-knowledge.mdc -- Knowledge routing, FCA compliance mandate.
 - 03-design-system.mdc -- Colours, typography, word limits, Lottie constraints.
 - 04-folder-integrity.mdc -- Strict folder structure enforcement.
-- 05-update-docs.mdc -- Doc sync protocol: keeps README.md, llms.txt, and folder rules in sync as part of every task.
+- 05-update-docs.mdc -- Doc sync protocol: living reference registry, change-to-doc matrix, mandatory closing verification; Copilot skill update-docs points here as canonical.
 - create-programme.mdc -- Generate programme folders with metadata and lesson files.
 - create-lesson.mdc -- Generate lesson editorial briefs (for AI pipeline) or core lesson files in both formats (Option B always generates {slug}.md + {slug}.v2.md).
 - create-feature.mdc -- Generate feature specs.
@@ -87,11 +87,11 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 - create-api-spec.mdc -- Generate RESTful API specs.
 
 ### .github/skills/ -- GitHub Copilot Agent Skills
-Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-programme, create-lesson, create-feature, create-agent, create-blueprint, create-api-spec, update-docs, repo-standards, design-system, use-knowledge-base.
+Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-programme, create-lesson, create-feature, create-agent, create-blueprint, create-api-spec, update-docs (pointer only — full matrix lives in `05-update-docs.mdc`), repo-standards, design-system, use-knowledge-base.
 
 ## Core Architecture: 9-Agent Maker-Checker Loop
 1. Every lesson request triggers two independent Maker-Checker runs **in parallel** -- v2_interactive (primary) and v1_swipe (fallback). A hard error in one run does not block the other.
-2. Creator Agent drafts content as structured JSON. Routes to `functions/docs/lesson_guidelines.md` (v1_swipe) or `functions/docs/lesson_guidelines_v2.md` (v2_interactive).
+2. Creator Agent drafts content as structured JSON. Routes to `functions/docs/lesson_guidelines.md` (v1_swipe) or `functions/docs/lesson_guidelines_v2.md` (v2_interactive). V2 requires exactly one clearly correct option per question (no ambiguous duplicate "False —"/"No —" pairs on the same stem).
 3. Compliance Agent validates against FCA rules in a for loop (MAX_ATTEMPTS = 3). For v2_interactive, traverses nested `learnMore` objects.
 4. Only "status": "PASS" allows a Firestore write to `user_lessons` + `screens`.
 5. Every write includes compliance_audit field with reasoning and timestamp.

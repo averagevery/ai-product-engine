@@ -68,7 +68,16 @@ For stricter enforcement without upgrading GitHub, prefer **Read** + fork.
 
 ---
 
+## Reference documentation (do not skip)
+
+Structural changes, new scripts, new rules, schema changes, and renames must update **living reference** docs in the **same** PR — not in a follow-up you “might do later.”
+
+1. Open **`.cursor/rules/05-update-docs.mdc`** (always-on Cursor rule). Use the **Change-to-Doc Matrix** and **Mandatory closing verification** checklist every time.
+2. If you rename or remove a folder, slug, or Firestore id, **search the repo** for the old string and update examples in `README.md`, `knowledge/llms.txt`, `requirements/features/core-system-architecture.md`, `scripts/README.md`, and other docs that cited it.
+3. Optional sanity check: **`npm run verify-reference-docs`** confirms the registry files still exist (it does not prove content is up to date — the matrix does).
+
 ## Related files
 
 - `.github/CODEOWNERS` -- documents intended code owners (fully enforced when branch protection + code owners are available on your plan).
 - `README.md` -- high-level GitOps overview.
+- `.cursor/rules/05-update-docs.mdc` -- canonical doc sync protocol and living reference registry.
