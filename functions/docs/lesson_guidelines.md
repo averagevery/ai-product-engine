@@ -1,6 +1,6 @@
-> **File Summary & Purpose:** This is the structural rulebook for the Creator Agent. It defines *how* Mulo teaches. It enforces strict mobile-first constraints (e.g., 8-11 screens, maximum word counts, specific interactive question formats) to ensure all JSON outputs map perfectly to the FlutterFlow UI.
+> **File Summary & Purpose:** This is the structural rulebook for the Creator Agent when generating `v1_swipe` lessons. It defines the 8-11 screen sequential format (Hook -> Learn -> Reflect -> Question -> Summary). It enforces strict mobile-first constraints to ensure all JSON outputs map perfectly to the FlutterFlow UI. For the 5-question interactive drill-down format, see `lesson_guidelines_v2.md` (v2_interactive).
 
-# Lesson Generation Guidelines (Mobile Learning)
+# Lesson Generation Guidelines: V1 Swipe (8-11 Screen Sequential)
 
 ## 1. Lesson Goal & Tone (Hard Boundary)
 * Create short, engaging, swipeable lessons built for mobile.

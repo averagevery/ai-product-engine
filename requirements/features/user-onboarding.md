@@ -13,12 +13,15 @@
 ## 2. User Journey
 
 * **Entry:** User opens the app for the first time. No account exists yet. The onboarding screen appears automatically.
-* **Action:** The user completes a short series of screens (target: 4-6 screens, under 90 seconds total):
-  1. **Welcome screen** -- sets the tone ("No judgement. Just learning.").
-  2. **Goal selection** -- user picks one or more financial goals from a curated list (e.g., "Save for a house deposit", "Get out of debt", "Start investing", "Understand my pension", "Learn the basics").
-  3. **Situation snapshot** -- 2-3 light-touch questions about their current situation (e.g., "Do you have any savings?", "Do you have any debt you're worried about?"). Answers are multiple-choice, not free-text.
-  4. **Confidence check** -- a single self-assessment ("How confident do you feel managing your money?" on a 3-point scale: Not confident / Somewhat confident / Confident).
-  5. **Summary screen** -- reflects back what the user shared and confirms: "We'll build your learning plan around this."
+* **Action:** The user completes 8 screens (target: under 60 seconds total). The flow should feel quick and conversational, not like a form.
+  1. **Name** -- "What should we call you?" Free text input. Used for personalised greetings throughout the app.
+  2. **Age** -- "How old are you?" Free text or age range selector. Used to tailor content relevance (e.g., pensions content less prominent for younger users, student loan content less relevant for older users).
+  3. **Goal** -- "What's your main financial goal right now?" Single select from: Buy my first home, Build an emergency fund, Improve my credit score, Clear my debt, Build wealth, Retire comfortably, Understand my finances, Protect my finances. This is the most important question -- it determines the entire Home screen layout and recommended programmes.
+  4. **Experience** -- "How would you describe your financial knowledge?" Single select: Complete beginner / Some knowledge / Fairly confident / Pretty savvy. Affects lesson difficulty recommendations and content depth.
+  5. **Difficulty** -- "How do you like to learn?" Single select: Beginner friendly / Challenge me / Mix of both. Determines the ratio of Beginner to Intermediate lessons surfaced.
+  6. **Pace** -- "How often do you want to learn?" Single select: 1 lesson per week / 2-3 per week / Daily / At my own pace. Sets nudge frequency and streak expectations.
+  7. **Topics** -- "What interests you most?" Multi-select from available topics (Property, Saving & Budgeting, Investing, Debt & Credit, Pensions, Tax & Admin, Protection, Economics). Broadens recommendations beyond the goal-driven content.
+  8. **Open Banking (optional)** -- "Want personalised insights based on your spending?" Explains the value proposition and gives the user the choice to connect or skip. Not mandatory -- users can always connect later from their Profile.
 * **Exit:** Profile is saved to Firestore. User is redirected to their personalised dashboard showing recommended programmes based on their goals and onboarding answers.
 
 ## 3. Context Documents and Technical Boundaries
@@ -46,7 +49,7 @@ AI agents generating code or content for this feature MUST read the following do
 
 | Collection | Read/Write | Fields Required |
 |------------|------------|-----------------|
-| `users` | WRITE | `userId`, `goals` (array of strings), `situation` (object -- answers to snapshot questions), `confidenceLevel` (string), `onboardingCompletedAt` (Timestamp), `created_at` (Timestamp) |
+| `users` | WRITE | `userId`, `name` (string), `age` (string or number), `goal` (string -- primary goal), `experienceLevel` (string: Complete beginner / Some knowledge / Fairly confident / Pretty savvy), `learningDifficulty` (string: Beginner friendly / Challenge me / Mix of both), `learningPace` (string: 1 lesson per week / 2-3 per week / Daily / At my own pace), `topicsOfInterest` (array of strings), `openBankingConnected` (boolean, default false), `onboardingCompletedAt` (Timestamp), `created_at` (Timestamp) |
 | `users` | READ | All fields above (consumed by Programme Recommendations and lesson difficulty calibration) |
 
 ## 5. Compliance Constraints
@@ -72,6 +75,7 @@ FCA-specific rules that apply to this feature:
 
 ## 8. Notes
 
-* The goal list presented in step 2 should map directly to the `goals` Firestore collection (see Learning Journey feature spec). Each goal string must match a document ID in that collection so the Programme Recommendations engine can resolve it.
-* The onboarding flow is designed to be revisitable -- users should be able to update their goals and situation from a settings screen after initial completion. This updates the `users` document and triggers a refresh of programme recommendations.
+* The goal list presented in screen 3 should map directly to the `goals` Firestore collection (see Learning Journey feature spec). Available goals: Buy my first home, Build an emergency fund, Improve my credit score, Clear my debt, Build wealth, Retire comfortably, Understand my finances, Protect my finances. Each goal string must match a document ID in that collection so the Programme Recommendations engine can resolve it.
+* All onboarding answers are stored in the user's Profile and can be changed at any time. Changes take immediate effect on recommended content, lesson difficulty, and personalised insights. This updates the `users` document and triggers a refresh of programme recommendations.
+* The onboarding routing logic (how answers map to recommended programmes) is detailed in `knowledge/onboarding-routing.md`.
 * Onboarding completion rate is a critical product metric. The Telemetry Agent should flag if drop-off exceeds 30% on any single screen.

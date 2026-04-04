@@ -3,7 +3,8 @@
   "private": true,
   "description": "Mulo AI monorepo -- GitOps source of truth for the Mulo AI platform.",
   "scripts": {
-    "sync-curriculum": "node scripts/sync_curriculum.js"
+    "sync-curriculum": "node scripts/sync_curriculum.js",
+    "validate-curriculum": "node scripts/sync_curriculum.js --dry-run"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0",

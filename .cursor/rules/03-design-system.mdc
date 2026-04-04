@@ -11,7 +11,7 @@ alwaysApply: true
 | Role | Hex | Usage |
 |------|-----|-------|
 | Background | `#0A0A1A` | Near-black. Must be used as the base background colour for all screens. |
-| Primary | `#3733E5` | Electric blue. Used for interactive elements, links, and highlights. |
+| Primary | `#5753FF` | Electric blue. Used for interactive elements, links, and highlights. |
 | Positive / CTA | Mint green | Used for success states, call-to-action buttons, and positive feedback. |
 
 ## Typography
@@ -27,7 +27,8 @@ These word limits are hard ceilings enforced across all generated educational co
 |---------|-----------|
 | Headlines | 7 |
 | Body text | 25 |
-| Feedback screens | 15 |
+| Feedback banners (v2_interactive) | 30 |
+| Feedback screens (v1_swipe) | 15 |
 
 ## Lottie Animation Constraints
 

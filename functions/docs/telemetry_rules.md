@@ -22,5 +22,38 @@ To keep Mulo relevant and highly investable, the Telemetry Agent should monitor 
 * **Bank of England Rates:** Track base rate changes. If rates rise significantly, trigger the Creator Agent to generate a new lesson on "How Interest Rates Affect Savings and Mortgages."
 * **Government Policy:** Monitor changes to UK ISA allowances, student loan thresholds, or tax brackets. 
 
-## 4. Output & Reporting
-The Telemetry Agent runs weekly. It must compile its findings into a JSON report saved to the `analytics` collection, formatted so that the CEO can easily query it via OpenClaw (e.g., "What were our worst-performing lessons this week, and what is the AI doing to fix them?").
+## 4. A/B Format Performance Tracking & Dynamic Prompt Switching
+
+The Telemetry Agent evaluates relative performance between `v1_swipe` (Format A) and `v2_interactive` (Format B). **Backend generation always produces both formats** for each lesson; telemetry informs which variant the **app** should prefer by default (e.g. which `lessonId` to open from a programme card), not a single-format pipeline switch.
+
+### Events to Track per Format
+
+For `v2_interactive` lessons, the following events MUST be tracked in the `analytics` collection:
+
+| Event | Data Captured | Interpretation |
+|-------|--------------|---------------|
+| `lightbox_opened` | `lessonId`, `questionIndex` (1-5), `timestamp` | Learn More engagement rate per question |
+| `lightbox_closed_early` | `lessonId`, `questionIndex`, `scrollDepth` (%) | User bailed before reading full Learn More page |
+| `story_carousel_abandoned` | `lessonId`, `questionIndex`, `slideReached` (1-5) | Which slide loses users |
+| `story_carousel_completed` | `lessonId`, `questionIndex` | Full carousel completion rate |
+| `breakdown_card_tapped` | `lessonId`, `questionIndex`, `cardType` (comparison/highlight/timeline) | Which card type drives most engagement |
+| `action_link_tapped` | `lessonId`, `questionIndex`, `url` | Trusted Tool click rate |
+| `feedback_choice` | `lessonId`, `questionIndex`, `choice` (learn_more/next) | Ratio of "Learn More" vs "Next" on feedback banner |
+
+For `v1_swipe` lessons, the existing quiz pass/fail and drop-off tracking applies (see Section 2).
+
+### A/B Decision Rules
+
+The agent evaluates format performance weekly. Recommend changing the **app default** (which variant to open) if:
+
+| Metric | Threshold | Action |
+|--------|-----------|--------|
+| v2 lesson completion rate | >10% higher than v1 over 30 days | Recommend v2_interactive as default |
+| v2 lightbox open rate | <20% across all lessons | Flag Format B as low-engagement; escalate to CEO |
+| v2 story carousel completion | <40% | Flag: carousels are too long or poorly written |
+| v1 drop-off rate | >50% on any single screen | Flag specific screen for Creator Agent rewrite |
+
+**Dynamic Switching Rule:** The Telemetry Agent MUST NOT automatically change production defaults without CEO confirmation. It logs a `format_recommendation` event to `agent_logs` (or `analytics`) with evidence; the CEO updates **app routing** or feature flags -- not the Cloud Function, which always generates both formats per request.
+
+## 5. Output & Reporting
+The Telemetry Agent runs weekly. It must compile its findings into a JSON report saved to the `analytics` collection, formatted so that the CEO can easily query it (e.g., "What were our worst-performing lessons this week, and what is the AI doing to fix them?"). The report must include a dedicated `ab_test_summary` section comparing Format A vs Format B on completion rate, lightbox engagement, and average score..

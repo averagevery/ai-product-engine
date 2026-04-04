@@ -12,7 +12,7 @@ This repository follows a GitOps architecture and is the single source of truth 
 
 ## Directory Structure
 
-- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` + lesson `.md` files. Synced to Firestore `core_lessons` via `npm run sync-curriculum`.
+- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` + paired lesson files (`{slug}.md` for v1_swipe and `{slug}.v2.md` for v2_interactive). Synced to Firestore `core_lessons` via `npm run sync-curriculum`.
 - `requirements/features/` -- App UX/UI feature specifications.
 - `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes AI-generated lessons to `user_lessons`.
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
@@ -22,6 +22,12 @@ This repository follows a GitOps architecture and is the single source of truth 
 - `templates/` -- Fill-in-the-blank document templates.
 - `docs/` -- Project-level documentation including `vision-and-product.md` and `CONTRIBUTING.md`.
 - `reference_docs/` -- Historical reference material (read-only archive, excluded from AI context via `.cursorignore`).
+
+## Lesson Format Routing
+
+The platform supports two lesson formats (`lessonFormat` on each lesson and screen document). **Both** are produced for every core sync pair and every user generation request; the app or experiments choose which variant to present. For AI-generated lessons, the Maker-Checker runs **both formats in parallel** (`v2_interactive` primary, `v1_swipe` fallback) so one run cannot block the other.
+- **v1_swipe** -- 8-11 screen linear flow. Agent rules: `functions/docs/lesson_guidelines.md`.
+- **v2_interactive** -- 5-question drill-down with feedback banners and nested Learn More lightboxes. Agent rules: `functions/docs/lesson_guidelines_v2.md`.
 
 ## The 9-Agent Maker-Checker Philosophy
 

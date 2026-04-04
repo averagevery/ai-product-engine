@@ -1,6 +1,6 @@
 ---
 name: create-lesson
-description: "Generate a lesson editorial brief or a hand-crafted core lesson for the Mulo AI platform."
+description: "Generate a lesson editorial brief or paired hand-crafted core lessons (v1 + v2) for the Mulo AI platform."
 ---
 
 # Create Lesson
@@ -11,32 +11,32 @@ Use this skill when specifying a lesson for Mulo. There are two lesson types. Re
 
 ### Option A: Editorial Brief (for AI-generated `user_lessons`)
 
-Creates an **editorial brief** -- the input that defines what the lesson should teach. The Creator Agent generates the full 8-11 screen lesson via the Maker-Checker pipeline.
+Creates an **editorial brief** -- the input that defines what the lesson should teach. The Maker-Checker pipeline runs **twice** per `lesson_requests` document (v1_swipe and v2_interactive), writing up to two `user_lessons` docs and matching `screens`.
 
 ### Option B: Core Lesson (for hand-crafted `core_lessons`)
 
-Creates a **complete screen-by-screen lesson** in markdown, synced to Firestore `core_lessons` via `npm run sync-curriculum`.
+Creates **two** markdown files in the programme folder: `{slug}.md` (v1) and `{slug}.v2.md` (v2). Both sync to Firestore via `npm run sync-curriculum` (`core_lessons` + `screens`; v2 lesson doc id `{slug}--v2`).
 
 ## Steps -- Editorial Brief (Option A)
 
 1. Read and use `templates/template-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
 2. Read `knowledge/personas.md` for the target persona context.
 3. Read `functions/docs/financial_standards.md` for the PISA financial pillars and topic boundaries.
-4. Read `functions/docs/lesson_guidelines.md` for screen flow, word limits, and the JSON output schema.
-5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons` and `screens` collections).
+4. Read `functions/docs/lesson_guidelines.md` for v1 screen flow (the pipeline also runs v2 using `lesson_guidelines_v2.md`).
+5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons`, `lesson_requests`, `screens`).
 6. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
 
 ## Steps -- Core Lesson (Option B)
 
-1. Read and use `templates/template-core-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
-2. Read `knowledge/personas.md` for the target persona context.
-3. Read `functions/docs/financial_standards.md` for the PISA financial pillars.
-4. Each `## Screen N: Type` heading becomes a Firestore screen document with `lessonType: "core"`.
-5. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
+**Always produce both files** (same metadata except format-specific fields). See `.cursor/rules/create-lesson.mdc` for the full step list.
+
+1. **V1:** `templates/template-core-lesson.md` → `{slug}.md` with `## Screen N:` headings.
+2. **V2:** `templates/template-core-lesson-v2.md` → `{slug}.v2.md` with `## Question N:` and nested `learnMore` (exactly 5 questions).
 
 ## Naming Convention
 
-Use a kebab-case slug: `{lesson-topic}.md` (e.g., `lisa-penalty-rules.md`). The file sits alongside `programme.md` in its programme folder.
+- **v1:** `{lesson-topic}.md`
+- **v2:** `{lesson-topic}.v2.md`
 
 ## AI Source Prompt
 
@@ -44,10 +44,7 @@ Every generated document must retain the AI Source Prompt block at the top, reco
 
 ## Content Constraints
 
-- Headlines: max 7 words
-- Body text: max 25 words
-- Feedback text: max 15 words
-- Lottie motifs: only approved motifs (bank building, piggy bank, shield, coins, graduation cap, growth chart)
-- Banned: `$` symbol, red effects, currency iconography
-- All content must use strict UK English spelling.
-- Every lesson must include an FCA disclaimer.
+Follow `.cursor/rules/create-lesson.mdc` and `.cursor/rules/03-design-system.mdc` -- v1 vs v2 word limits differ (v2 feedback banners 30 words; v1 feedback screens 15 words; see `lesson_guidelines_v2.md` for full v2 rules).
+
+- Lottie motifs (v1 only): approved motifs only; banned: `$`, red effects, currency iconography in animations.
+- Strict UK English; FCA disclaimer on every lesson; no regulated financial advice.

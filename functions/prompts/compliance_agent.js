@@ -25,6 +25,7 @@ async function loadComplianceRules() {
 
 /**
  * Build the Compliance Agent prompt.
+ * For v2_interactive, explicitly instructs the agent to traverse nested learnMore.
  *
  * @param {{lessonMetadata?: any, screens?: any[]}} lessonDraft
  * @param {{request: any, requestId: string, attempt: number}} requestContext
@@ -33,6 +34,7 @@ async function loadComplianceRules() {
  */
 function buildCompliancePrompt(lessonDraft, requestContext, complianceRules) {
   const {request, requestId, attempt} = requestContext;
+  const lessonFormat = request.lessonFormat || "v1_swipe";
 
   const draftPayload = {
     lesson_metadata: lessonDraft.lessonMetadata || {},
@@ -41,23 +43,39 @@ function buildCompliancePrompt(lessonDraft, requestContext, complianceRules) {
 
   const draftJson = JSON.stringify(draftPayload, null, 2);
 
+  const formatSpecificRules =
+    lessonFormat === "v2_interactive"
+      ? `
+ADDITIONAL V2 INTERACTIVE RULES:
+- Each screen contains a nested "learnMore" object. You MUST traverse and validate ALL nested content.
+- Validate: hero.strapline, hero.headline, quickSummary, every storyCarousel slide, every breakdownCard, all takeaways, applyToMyMoney (if present), and actionLink (if present).
+- storyCarousel characters must NOT give financial advice. Their stories are illustrative only.
+- breakdownCards must present educational comparisons, not product recommendations.
+- actionLink URLs must point to approved non-commercial sources (Gov.uk, MoneyHelper, HMRC, etc.).
+- applyToMyMoney disclaimer must state: "Based on general UK guidelines. Not personalised financial advice."
+- Validate word limits: questionText <= 20 words, options <= 10 words each, feedback <= 30 words, quickSummary <= 2 sentences, takeaways <= 15 words each.`
+      : "";
+
   const header = `
 You are the Compliance Agent for 'Mulo', an autonomous UK financial education app.
 You enforce FCA Consumer Duty and the strict bans defined below.
+Lesson Format: ${lessonFormat}
 
 COMPLIANCE RULES (READ CAREFULLY, DO NOT REPEAT VERBATIM IN OUTPUT):
 ${complianceRules}
+${formatSpecificRules}
 
 Your job is to REVIEW the following drafted lesson and decide whether it is compliant.
 You MUST be extremely strict about:
 - No personalised financial advice.
-- No promotion of specific financial products or \"get rich quick\" schemes.
-- Age-appropriate, clear, supportive language for 16–25 year olds.
+- No promotion of specific financial products or "get rich quick" schemes.
+- Age-appropriate, clear, supportive language for 16-25 year olds.
 - Staying on-topic: UK financial education only.`;
 
   const contextSection = `
 REQUEST CONTEXT:
 - requestId: ${requestId}
+- lessonFormat: ${lessonFormat}
 - attempt: ${attempt}
 - category: ${request.category || "Custom"}
 - moduleName: ${request.moduleName || ""}

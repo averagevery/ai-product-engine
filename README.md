@@ -18,21 +18,21 @@ The repository is organised into four key zones, each with a clear purpose.
 Cursor Monorepo (GitOps)
     │
     ├── npm run sync-curriculum ──► Firestore: core_lessons + screens
-    │                                (hand-crafted, read-only in app)
+    │                                (v1 + v2 per lesson; hand-crafted, read-only in app)
     │
     └── firebase deploy ──► Cloud Functions ──► Firestore: user_lessons + screens
-                              (Maker-Checker AI pipeline, read/write in app)
+                              (Maker-Checker: v2 + v1 in parallel per request; read/write in app)
                                         │
                                         ▼
                               FlutterFlow App (reads both)
 ```
 
-Two lesson paths feed the same `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`):
+Two lesson paths feed the same `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`). Both paths always produce **two** lessons -- one `v1_swipe` and one `v2_interactive` -- with the same name and metadata but different screen shapes:
 
 | Path | Collection | Source |
 |------|-----------|--------|
-| Hand-crafted curriculum | `core_lessons` | Written in Cursor as markdown, synced via `npm run sync-curriculum` |
-| AI-generated lessons | `user_lessons` | Created by the Maker-Checker pipeline on user request |
+| Hand-crafted curriculum | `core_lessons` | Written in Cursor as paired markdown files (`{slug}.md` + `{slug}.v2.md`), synced via `npm run sync-curriculum` |
+| AI-generated lessons | `user_lessons` | Maker-Checker runs **both formats in parallel** (v2 primary, v1 fallback); one run cannot block the other |
 
 ### `requirements/` -- The Source of Truth for Product Specs
 
@@ -53,6 +53,8 @@ Manually curated knowledge files that ground every AI interaction in real-world 
 | `knowledge/fca-regulations.md` | FCA Consumer Duty constraints -- the compliance boundary |
 | `knowledge/market-context.md` | UK financial education competitive landscape |
 | `knowledge/glossary.md` | Domain-specific terminology definitions |
+| `knowledge/onboarding-routing.md` | 8-screen onboarding flow, goal routing, experience routing |
+| `knowledge/day2-open-banking.md` | Open Banking data principles, signal categories, agent architecture |
 | `knowledge/llms.txt` | Machine-readable project summary (AI agents read this first) |
 | `docs/vision-and-product.md` | Product vision, mission, and the 3-layer architecture |
 
@@ -80,7 +82,7 @@ Cursor rules govern how AI behaves in this repository. Five rules are always on,
 | `04-folder-integrity.mdc` | Always on | Prevents files in wrong directories |
 | `05-update-docs.mdc` | Always on | Keeps `README.md`, `llms.txt`, and folder rules in sync as part of every task |
 | `create-programme.mdc` | @-mention | Creates programme folders in `requirements/content/programmes/` |
-| `create-lesson.mdc` | @-mention | Drafts lesson briefs or core lessons inside programme folders |
+| `create-lesson.mdc` | @-mention | Drafts lesson briefs or **paired** core lessons (`{slug}.md` + `{slug}.v2.md`) inside programme folders |
 | `create-feature.mdc` | @-mention | Drafts feature specs to `requirements/features/` |
 | `create-agent.mdc` | @-mention | Creates or updates agent rules in `functions/docs/` |
 | `create-blueprint.mdc` | @-mention | Maps user journeys as service blueprints to `docs/` |
@@ -141,7 +143,7 @@ These rules are enforced by `.cursor/rules/03-design-system.mdc` and `.cursor/ru
 | Constraint | Value |
 |-----------|-------|
 | Background | Near-black `#0A0A1A` |
-| Primary colour | Electric blue `#3733E5` |
+| Primary colour | Electric blue `#5753FF` |
 | CTA / Positive | Mint green |
 | Typography | DM Sans (strict, no substitutions) |
 
@@ -151,7 +153,8 @@ These rules are enforced by `.cursor/rules/03-design-system.mdc` and `.cursor/ru
 |---------|---------|
 | Headlines | 7 words |
 | Body text | 25 words |
-| Feedback screens | 15 words |
+| Feedback banners (v2_interactive) | 30 words |
+| Feedback screens (v1_swipe) | 15 words |
 
 ### Lottie Animations
 
@@ -207,6 +210,16 @@ npm run sync-curriculum
 
 This pushes all hand-crafted core lessons to the `core_lessons` and `screens` collections in Firestore. The sync is idempotent -- it clears existing core screens before re-syncing.
 
+Check lessons without touching Firestore (parsers + validation only):
+
+```bash
+npm run validate-curriculum
+```
+
+**Firestore sync auth:** Set `GOOGLE_APPLICATION_CREDENTIALS` to a service account JSON (or use Application Default Credentials). The sync script passes the project ID from `.firebaserc` (`projects.default`) so you avoid the “unable to detect a project ID” error when credentials omit it. See `scripts/README.md` for details.
+
+Example paired lesson (v1 + v2 markdown): `requirements/content/programmes/first-home-foundations/first-home-deposits-explained.md` and `first-home-deposits-explained.v2.md`.
+
 ### Project Configuration
 
 - **Firebase config:** `firebase.json` (functions source set to `functions/`)
@@ -221,30 +234,66 @@ This pushes all hand-crafted core lessons to the `core_lessons` and `screens` co
 ```
 mulo-ai-backend/
 ├── .cursor/
-│   ├── rules/              # Cursor AI rules (.mdc files)
-│   └── mcp.json            # MCP server configuration
+│   ├── rules/                    # Cursor AI rules (.mdc files)
+│   └── mcp.json                  # MCP server configuration
 ├── .github/
-│   ├── CODEOWNERS          # Role-based access control
-│   └── skills/             # GitHub Copilot Agent Skills
+│   ├── CODEOWNERS                # Role-based access control
+│   └── skills/                   # GitHub Copilot Agent Skills
 ├── docs/
-│   ├── CONTRIBUTING.md       # Branch / fork / PR workflow for collaborators
-│   └── vision-and-product.md
-├── functions/              # Backend engine + agent rules
-│   ├── docs/               # Agent behavioural rules (single source of truth)
-│   ├── prompts/            # Agent prompt definitions
-│   └── src/                # Backend execution logic
-├── knowledge/              # Manually curated fact base
-├── reference_docs/         # Historical reference material
+│   ├── CONTRIBUTING.md           # Branch / fork / PR workflow for collaborators
+│   └── vision-and-product.md     # Product vision, 3-layer model, app structure
+├── functions/                    # Backend engine + agent rules
+│   ├── docs/                     # Agent behavioural rules (single source of truth)
+│   │   ├── agent_architecture.md
+│   │   ├── compliance_rules.md
+│   │   ├── day2_open_banking_agent.md
+│   │   ├── design_guidelines.md
+│   │   ├── financial_standards.md
+│   │   ├── lesson_guidelines.md      # V1 swipe format rules
+│   │   ├── lesson_guidelines_v2.md   # V2 interactive format rules
+│   │   └── telemetry_rules.md
+│   ├── prompts/                  # Agent prompt definitions
+│   └── src/                      # Backend execution logic
+├── knowledge/                    # Manually curated fact base
+│   ├── day2-open-banking.md
+│   ├── fca-regulations.md
+│   ├── glossary.md
+│   ├── llms.txt
+│   ├── market-context.md
+│   ├── onboarding-routing.md
+│   └── personas.md
+├── reference_docs/               # Historical reference material (read-only)
 ├── requirements/
 │   ├── content/
-│   │   └── programmes/     # Programme folders (programme.md + lesson files)
-│   └── features/           # App feature specifications
+│   │   └── programmes/           # Programme folders (programme.md + lesson files)
+│   └── features/                 # App feature specifications
+│       ├── analytics-tracking.md
+│       ├── apply-to-my-money.md
+│       ├── core-system-architecture.md
+│       ├── goals-system.md
+│       ├── growth-tab.md
+│       ├── home-screen.md
+│       ├── learning-journey.md
+│       ├── lesson-format-v2.md
+│       ├── notifications-nudges.md
+│       ├── profile-tab.md
+│       ├── programme-recommendations.md
+│       ├── trending-content.md
+│       ├── user-onboarding.md
+│       └── xp-rewards.md
 ├── scripts/
-│   └── sync_curriculum.js  # Syncs core lessons to Firestore
-├── templates/              # Fill-in-the-blank document templates
+│   └── sync_curriculum.js        # Syncs core lessons to Firestore
+├── templates/                    # Fill-in-the-blank document templates
+│   ├── template-agent.md         # Agent behavioural rule document template
+│   ├── template-core-lesson.md   # V1 swipe core lesson template
+│   ├── template-core-lesson-v2.md # V2 interactive core lesson template
+│   ├── template-feature.md
+│   ├── template-lesson.md
+│   ├── template-programme.md
+│   └── template-service-blueprint.md
 ├── .cursorignore
 ├── .firebaserc
 ├── firebase.json
-├── package.json            # Root scripts (sync-curriculum)
+├── package.json                  # Root scripts (sync-curriculum)
 └── README.md
 ```
