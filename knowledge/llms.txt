@@ -31,10 +31,12 @@ Both paths always produce two lessons -- one v1_swipe and one v2_interactive -- 
 
 Both write screens to a single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`) and `lessonFormat` (`"v1_swipe"` or `"v2_interactive"`).
 
+A `programmes` collection stores programme metadata synced from `programme.md` YAML frontmatter. Doc ID = programme folder name. Fields: `programmeName`, `category`, `persona`, `estimatedTime`, `lessonCount`, `lessons` (ordered array of `{ slug, order }`), `sourceSha256`, `syncedAt`, `syncedFrom`. Each `core_lessons` doc gets a `lessonOrder` field set from the programme's `lessons` array. FlutterFlow queries `core_lessons` ordered by `lessonOrder`.
+
 ## Repository Layout
 
 ### requirements/ -- Product Specifications
-- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (metadata) and sibling lesson `.md` files. Template: templates/template-programme.md. Rule: create-programme.mdc. Example folder: `first-home-foundations/` (paired `first-home-deposits-explained.md` + `.v2.md`).
+- requirements/content/programmes/{programme-name}/ -- Each programme is a folder containing a `programme.md` (YAML frontmatter with `programmeName`, `category`, `persona`, `lessons` array) and sibling lesson `.md` files. The YAML `lessons` array is the source of truth for lesson order. Template: templates/template-programme.md. Rule: create-programme.mdc. Example folder: `first-home-foundations/` (paired `first-home-deposits-explained.md` + `.v2.md`).
 - requirements/content/programmes/{programme-name}/{lesson-name}.md -- Hand-crafted v1 core lessons with YAML frontmatter and ## Screen headings. Template: templates/template-core-lesson.md.
 - requirements/content/programmes/{programme-name}/{lesson-name}.v2.md -- Hand-crafted v2 core lessons with ## Question headings and nested learnMore. Template: templates/template-core-lesson-v2.md. Both synced to `core_lessons` via `npm run sync-curriculum`.
 - requirements/features/ -- App UX/UI feature specs (natural-language-name.md). Template: templates/template-feature.md. Rule: create-feature.mdc.
@@ -59,7 +61,7 @@ Both write screens to a single flat `screens` collection, distinguished by `less
 - functions/docs/ -- Single source of truth for agent behavioural rules, compliance constraints, and design guidelines. Edit here to change agent behaviour at runtime. Rule: create-agent.mdc.
 
 ### scripts/ -- Utility Scripts
-- scripts/sync_curriculum.js -- Syncs hand-crafted core lessons from requirements/content/programmes/ to Firestore `core_lessons` + `screens`. Handles both `.md` (v1, parseScreens) and `.v2.md` (v2, parseV2Screens) files. Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one (avoids Admin SDK "unable to detect a project ID"). If `GOOGLE_APPLICATION_CREDENTIALS` is unset, uses `.secrets/firebase-adminsdk.json` or the only `*.json` in `.secrets/`. CI: `.github/workflows/sync-curriculum.yml` (secret `FIREBASE_SERVICE_ACCOUNT_JSON`).
+- scripts/sync_curriculum.js -- Syncs hand-crafted curriculum from requirements/content/programmes/ to Firestore: `programmes` (from `programme.md` YAML), `core_lessons` + `screens`. Sets `lessonOrder` on `core_lessons` from the `programme.md` lessons array. Skips re-write when `sourceSha256` matches and (for lessons) core screen row count matches. Prunes orphaned `programmes`, `core_lessons`, and core `screens` when removed from repo (`--no-prune` to disable; `--force` to always write). Uses `projects.default` from `.firebaserc` as `projectId` when env does not set one. If `GOOGLE_APPLICATION_CREDENTIALS` is unset, uses `.secrets/firebase-adminsdk.json` or the only `*.json` in `.secrets/`. CI: `.github/workflows/sync-curriculum.yml` (secret `FIREBASE_SERVICE_ACCOUNT_JSON`).
 - Run via: `npm run sync-curriculum` (root package.json). `npm run validate-curriculum` runs parsers + validation with `--dry-run` (no Firestore).
 
 ### templates/ -- Document Templates
@@ -98,11 +100,12 @@ Each skill mirrors a corresponding .cursor/rules/ file. Includes: create-program
 8. Cloud Function options: timeoutSeconds 240, memory 1GiB (`functions/src/maker_checker_loop.js`).
 9. Screens schema has two shapes: Shape A (v1_swipe) and Shape B (v2_interactive). Full schema in `requirements/features/core-system-architecture.md`.
 
-## Curriculum Sync (Core Lessons)
-1. Author writes paired lesson markdown in requirements/content/programmes/{programme-name}/: `{slug}.md` (v1) and `{slug}.v2.md` (v2).
-2. v1 files use YAML frontmatter + `## Screen N: Type` headings. v2 files use YAML frontmatter + `## Question N:` headings with nested `### learnMore` sections.
-3. Run `npm run sync-curriculum` to push both to Firestore `core_lessons` + `screens` (with `lessonType: "core"`). v2 doc ID: `{slug}--v2`.
-4. The sync is idempotent -- it clears existing core screens before re-syncing.
+## Curriculum Sync (Core Lessons + Programmes)
+1. Each programme folder has a `programme.md` with YAML frontmatter (`programmeName`, `category`, `persona`, `estimatedTime`, `lessonCount`, `lessons` array of `{ slug, order }`).
+2. Author writes paired lesson markdown: `{slug}.md` (v1) and `{slug}.v2.md` (v2).
+3. v1 files use YAML frontmatter + `## Screen N: Type` headings. v2 files use YAML frontmatter + `## Question N:` headings with nested `### learnMore` sections.
+4. Run `npm run sync-curriculum` to push programmes to `programmes/{id}`, lessons to `core_lessons` + `screens` (with `lessonType: "core"`). Each `core_lessons` doc gets `lessonOrder` from `programme.md`.
+5. Idempotent: skips re-write when `sourceSha256` matches. Prunes orphaned programmes, lessons, and screens.
 
 ## Non-Negotiable Constraints
 - Deployment region: europe-west2 (London).

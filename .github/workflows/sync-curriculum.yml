@@ -1,4 +1,4 @@
-# Pushes hand-crafted core lessons from the repo to Firestore (core_lessons + screens).
+# Pushes hand-crafted curriculum from the repo to Firestore (programmes + core_lessons + screens).
 # Requires repo secret: FIREBASE_SERVICE_ACCOUNT_JSON (full service account key JSON).
 name: Sync curriculum to Firestore
 
@@ -16,14 +16,15 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # v6 / v3 run on Node 24 (GitHub is deprecating Node 20 for Actions)
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: "npm"
 
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 

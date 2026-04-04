@@ -17,7 +17,7 @@ The repository is organised into four key zones, each with a clear purpose.
 ```
 Cursor Monorepo (GitOps)
     │
-    ├── npm run sync-curriculum ──► Firestore: core_lessons + screens
+    ├── npm run sync-curriculum ──► Firestore: programmes + core_lessons + screens
     │                                (v1 + v2 per lesson; hand-crafted, read-only in app)
     │
     └── firebase deploy ──► Cloud Functions ──► Firestore: user_lessons + screens
@@ -209,7 +209,7 @@ After creating or editing lesson files in `requirements/content/programmes/`:
 npm run sync-curriculum
 ```
 
-This pushes all hand-crafted core lessons to the `core_lessons` and `screens` collections in Firestore. The sync is idempotent -- it clears existing core screens before re-syncing.
+This pushes programme metadata to `programmes`, and hand-crafted core lessons to `core_lessons` and `screens` in Firestore. Each `core_lessons` doc gets a `lessonOrder` field from `programme.md`. The sync is idempotent -- unchanged files are skipped, and orphaned programmes/lessons are pruned.
 
 Check lessons without touching Firestore (parsers + validation only):
 

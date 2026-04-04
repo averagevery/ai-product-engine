@@ -2,6 +2,17 @@
 > **Generated:** 2026-04-03
 > **Rule Used:** create-programme.mdc (informal)
 
+---
+programmeName: First Home Foundations
+category: Mortgage
+persona: Sarah (First-Time Buyer)
+estimatedTime: 10 mins
+lessonCount: 1
+lessons:
+  - slug: first-home-deposits-explained
+    order: 1
+---
+
 # Programme: First Home Foundations
 
 > Save location: `requirements/content/programmes/first-home-foundations/programme.md`
