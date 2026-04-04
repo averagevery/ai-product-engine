@@ -33,7 +33,7 @@ AI agents generating code or content for this feature MUST read the following do
 | Design System | `.cursor/rules/03-design-system.mdc` | Colours, typography, word limits, Lottie constraints |
 | FCA Regulations | `knowledge/fca-regulations.md` | Compliance boundaries -- onboarding must not collect regulated data |
 | Personas | `knowledge/personas.md` | The five target personas whose needs drive the question design |
-| Lesson Guidelines | `functions/docs/lesson_guidelines.md` | Mobile screen constraints (word limits apply to onboarding screens too) |
+| Lesson Guidelines | `functions/docs/lesson_guidelines.md` | Mobile screen constraints and question format (word limits apply to onboarding screens too) |
 
 **Prohibitions (quick reference):** NEVER use the `$` symbol, red alert text, complex background gradients, or brand logos in any onboarding screen. NEVER ask for account numbers, portfolio values, specific salary figures, or any data that would constitute regulated financial information.
 

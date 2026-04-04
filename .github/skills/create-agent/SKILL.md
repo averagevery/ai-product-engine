@@ -24,7 +24,7 @@ Use this skill when creating a new agent rule document or updating an existing o
 | `design_guidelines.md` | Design Agent | Visual asset prompting rules |
 | `telemetry_rules.md` | Telemetry Agent | Micro and macro data triggers |
 | `financial_standards.md` | Creator Agent | PISA financial literacy pillars |
-| `lesson_guidelines.md` | Creator Agent | Mobile screen constraints and JSON output rules |
+| `lesson_guidelines.md` | Creator Agent | V2 interactive format: 5-question drill-down, feedback banners, Learn More lightboxes; one clearly correct MCQ option per question |
 | `agent_architecture.md` | All | System-wide pipeline architecture |
 
 ## Quality Checklist

@@ -11,18 +11,16 @@ Syncs hand-crafted core lesson content from the Cursor monorepo to Firestore.
 1. Scans `requirements/content/programmes/` for programme folders
 2. **Phase 1 (programme):** Reads `programme.md` in each folder, parses YAML frontmatter (`programmeName`, `category`, `persona`, `estimatedTime`, `lessonCount`, `lessons` array), validates, and syncs to Firestore `programmes/{programmeId}`
 3. **Phase 2 (lessons):** Reads each lesson `.md` file (skipping `programme.md`)
-4. Routes files ending in `.v2.md` to the v2 parser; all other `.md` files use the v1 parser
-5. Parses YAML frontmatter for lesson metadata (including files that start with a blockquote before the first `---` block)
-6. **Validates** parsed lessons before any Firestore write: v1 screen count 8–11, question/summary field checks; v2 exactly 5 questions, `learnMore` structure (5 slides, 2 breakdown cards, takeaways, `correctIndex`, etc.)
-7. **v1:** Parses `## Screen N: Type` headings into Shape A screen documents
-8. **v2:** Parses `## Question N:` headings (including nested `### learnMore`) into Shape B screen documents
-9. Writes lesson metadata to `core_lessons/{lesson-slug}` (v1) or `core_lessons/{lesson-slug}--v2` (v2), setting `lessonOrder` from the `programme.md` `lessons` array
-10. Writes each screen to the `screens` collection with `lessonType: "core"` and matching `lessonFormat`
-11. Clears existing core screens for that lesson id before re-syncing when the lesson **does** need a write
-12. Stores **`sourceSha256`** on each `programmes` and `core_lessons` document (hash of the raw markdown file). If Firestore already matches that hash **and** (for lessons) the number of core `screens` rows equals the parsed count, that document is **skipped** (saves writes). If someone deleted the document or screens in the console, the next sync **recreates** them from the repo.
-13. **Prune lessons:** After syncing, removes `core_lessons` documents (and their core `screens`) for each `programmeId` that are **no longer** represented by a file in that programme folder.
-14. **Prune programmes:** Removes `programmes` documents whose id does not match a folder in `requirements/content/programmes/`. Cascades: deletes all `core_lessons` and `screens` for that programme.
-15. Use **`--no-prune`** to turn pruning off. **`--force`** always re-writes (ignores the hash short-circuit).
+4. Parses YAML frontmatter for lesson metadata (including files that start with a blockquote before the first `---` block)
+5. **Validates** parsed lessons before any Firestore write: exactly 5 questions, `learnMore` structure (5 slides, 2 breakdown cards, takeaways, `correctIndex`, etc.)
+6. Parses `## Question N:` headings (including nested `### learnMore`) into screen documents
+7. Writes lesson metadata to `core_lessons/{lesson-slug}`, setting `lessonOrder` from the `programme.md` `lessons` array
+8. Writes each screen to the `screens` collection with `lessonType: "core"` and `lessonFormat: "v2_interactive"`
+9. Clears existing core screens for that lesson id before re-syncing when the lesson **does** need a write
+10. Stores **`sourceSha256`** on each `programmes` and `core_lessons` document (hash of the raw markdown file). If Firestore already matches that hash **and** (for lessons) the number of core `screens` rows equals the parsed count, that document is **skipped** (saves writes). If someone deleted the document or screens in the console, the next sync **recreates** them from the repo.
+11. **Prune lessons:** After syncing, removes `core_lessons` documents (and their core `screens`) for each `programmeId` that are **no longer** represented by a file in that programme folder.
+12. **Prune programmes:** Removes `programmes` documents whose id does not match a folder in `requirements/content/programmes/`. Cascades: deletes all `core_lessons` and `screens` for that programme.
+13. Use **`--no-prune`** to turn pruning off. **`--force`** always re-writes (ignores the hash short-circuit).
 
 ### Prerequisites
 
@@ -30,7 +28,7 @@ Syncs hand-crafted core lesson content from the Cursor monorepo to Firestore.
 npm install
 ```
 
-**Team workflow (default):** Add GitHub Actions secret **`FIREBASE_SERVICE_ACCOUNT_JSON`** (full service account JSON). Pushes to **`main`** that touch `requirements/content/programmes/**` run **Sync curriculum to Firestore** — see **`docs/partner-curriculum-sync.md`**.
+**Team workflow (default):** Add GitHub Actions secret **`FIREBASE_SERVICE_ACCOUNT_JSON`** (full service account JSON). Pushes to **`main`** that touch `requirements/content/programmes/**` run **Sync curriculum to Firestore** — see **`docs/partner-guide.md`**.
 
 **Running sync on your own machine** (optional): the service account needs Firestore write access. Either:
 
@@ -96,11 +94,7 @@ node scripts/sync_curriculum.js --force
   ---
   ```
 
-**V1 (`{slug}.md`):** `templates/template-core-lesson.md`
-- YAML frontmatter with `category`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `persona`, `screenCount`
-- `## Screen N: Type` headings with `**fieldName:**` pairs; MCQ options as `- A) ...`
-
-**V2 (`{slug}.v2.md`):** `templates/template-core-lesson-v2.md`
+**Lesson (`{slug}.md`):** `templates/template-core-lesson.md`
 - YAML frontmatter includes `lessonFormat: v2_interactive` and `screenCount: 5`
 - `## Question N:` headings with options as `- 0)` … `- 3)` and a `### learnMore` block per question
 

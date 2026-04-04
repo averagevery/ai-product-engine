@@ -36,9 +36,9 @@ Support a realistic first-home journey: understand how deposits and costs work, 
 
 | Order | Filename | Lesson Name | Focus |
 |-------|----------|-------------|-------|
-| 1 | first-home-deposits-explained.md (+ .v2.md) | First Home Deposits Explained | Deposits, schemes context, trade-offs, upfront costs (paired v1 + v2) |
-| 2 | how-to-start-building-a-deposit.md (+ .v2.md) | How to start building a deposit | Dedicated pot, automation, buffers, realistic pace (paired v1 + v2) |
+| 1 | first-home-deposits-explained.md | First Home Deposits Explained | Deposits, schemes context, trade-offs, upfront costs |
+| 2 | how-to-start-building-a-deposit.md | How to start building a deposit | Dedicated pot, automation, buffers, realistic pace |
 
 ## Notes
 
-Paired core files follow `create-lesson.mdc` Option B: `{slug}.md` (v1_swipe) and `{slug}.v2.md` (v2_interactive).
+Core files follow `create-lesson.mdc` Option B: `{slug}.md` (v2_interactive format).

@@ -16,7 +16,7 @@ Use this skill when defining a high-level educational programme for Mulo. Read `
 3. Read `docs/vision-and-product.md` to align the programme with the See -> Learn -> Act model.
 4. Create a **folder** at `requirements/content/programmes/{programme-slug}/`.
 5. Save the programme metadata as `programme.md` inside that folder.
-6. For each lesson, create either a core lesson file (`templates/template-core-lesson.md`) or an editorial brief (`templates/template-lesson.md`) as a sibling `.md` file alongside `programme.md`.
+6. For each lesson, create either one core lesson file (`templates/template-core-lesson.md` → `{lesson-slug}.md`) or an editorial brief (`templates/template-lesson.md`) as a sibling `.md` file alongside `programme.md`.
 
 ## Naming Convention
 

@@ -18,17 +18,17 @@ When acting as the Lead Engineer for Mulo, Cursor AI must adhere to the followin
 2. **The Maker-Checker Rule:** Content generation MUST always happen in a `while` loop alongside a Compliance Agent. Content can only be saved to Firestore if the Compliance Agent returns a `"status": "PASS"`.
 3. **Audit Trails:** Every database write to the `user_lessons` collection must include a `compliance_audit` field containing the Compliance Agent's reasoning, and a timestamp. Failed drafts must be logged to the `agent_logs` collection.
 4. **Batch Writes:** Lessons are split across two collections. Use a Firestore Batch Write to save the parent document to `user_lessons` and the individual screens to the `screens` collection.
-5. **Lesson Format Routing:** Each `lesson_requests` trigger runs the Maker-Checker loop **twice in parallel** (`Promise.allSettled`) -- `v2_interactive` (primary) and `v1_swipe` (fallback). For each run, the Creator Agent reads `functions/docs/lesson_guidelines_v2.md` (v2) or `functions/docs/lesson_guidelines.md` (v1). A failure in one run does not block the other. An optional `lessonFormat` field on the request document (if present) does **not** select a single format; both always generate.
+5. **Lesson Format Routing:** Each `lesson_requests` trigger runs a single Maker-Checker loop producing a `v2_interactive` lesson. The Creator Agent reads `functions/docs/lesson_guidelines.md`.
 
 ## 3. Database Schema (Firestore)
 
 Cursor must hardcode the Gemini prompt and Cloud Function logic to output JSON matching this exact structure:
 
 **Collection: `user_lessons`**
-Fields: `category`, `moduleName`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `lessonFormat` (`"v1_swipe"` or `"v2_interactive"`), `goal`, `goalOrder`, `requestID`, `userID`, `compliance_audit`, `human_approved` (boolean, default: false), `version` (integer, default: 1), `rewrite_reason` (string, nullable)
+Fields: `category`, `moduleName`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `lessonFormat` (`"v2_interactive"`), `goal`, `goalOrder`, `requestID`, `userID`, `compliance_audit`, `human_approved` (boolean, default: false), `version` (integer, default: 1), `rewrite_reason` (string, nullable)
 
 **Collection: `screens` (Linked to a Lesson via `lessonId`)**
-Two JSON shapes depending on `lessonFormat`. Shape A (v1_swipe): `lessonName`, `learningStyle`, `screenNumber`, `screenType`, `headline`, `paragraph`, `question`, `optionA`-`optionD`, `questionAnswer`, `feedbackCorrect`, `feedbackIncorrect`, `keyTakeaway1`-`keyTakeaway3`, `LottieSuggestion`, `lottieURL`. Shape B (v2_interactive): `questionText`, `emoji`, `options` (array), `correctIndex`, `feedbackCorrect`, `feedbackIncorrect`, `learnMore` (nested map). Full schema in `requirements/features/core-system-architecture.md`.
+Uses the v2_interactive JSON shape: `questionText`, `emoji`, `options` (array), `correctIndex`, `feedbackCorrect`, `feedbackIncorrect`, `learnMore` (nested map). Full schema in `requirements/features/core-system-architecture.md`.
 
 **Collection: `lesson_history` (Top-level collection -- used for Telemetry)**
 Fields: `lessonId`, `lessonType` (`"core"` or `"user"`), `userId`, `completedAt`, `screenProgress`, `quizResults`, `thumbsUp`, `dropOffScreen`.
@@ -41,14 +41,14 @@ Fields: `Keywords`, `LottieSuggestion` (Description), `lottieURL`, `human_approv
 ### Phase 1: The Product Engine
 
 - **Creator Agent (`prompts/creator_agent.js`)**
-  - *Context:* Read `functions/docs/financial_standards.md` (PISA framework) and `functions/docs/lesson_guidelines.md` (v1_swipe) or `functions/docs/lesson_guidelines_v2.md` (v2_interactive) depending on `lessonFormat`.
-  - *Role:* Drafts JSON lessons based on the schema above. Routes to the correct guideline file based on the `lessonFormat` field.
+  - *Context:* Read `functions/docs/financial_standards.md` (PISA framework) and `functions/docs/lesson_guidelines.md`.
+  - *Role:* Drafts JSON lessons in v2_interactive format based on the schema above.
 - **Compliance Agent (`prompts/compliance_agent.js`)**
   - *Context:* Read `functions/docs/compliance_rules.md` (FCA Consumer Duty).
-  - *Role:* Evaluates the Creator's draft. Enforces strict UK compliance (NO financial advice). Returns PASS/FAIL with reasoning. For v2_interactive, must traverse nested `learnMore` objects including carousels and breakdown cards.
+  - *Role:* Evaluates the Creator's draft. Enforces strict UK compliance (NO financial advice). Returns PASS/FAIL with reasoning. Must traverse nested `learnMore` objects including carousels and breakdown cards.
 - **Design Agent (`prompts/design_agent.js`)**
   - *Context:* Read `functions/docs/design_guidelines.md` (Flat vector, transparent backgrounds).
-  - *Role:* Triggered by a "PASS". First, checks the `image_library` collection to see if a matching image already exists based on keywords. If not, generates a new image via Nano Banana, saves it to Firebase Storage, updates the `screens` document, and saves the new image data to `image_library` for future reuse. Only applies to v1_swipe lessons (v2_interactive does not use bespoke Lottie animations).
+  - *Role:* Triggered by a "PASS". First, checks the `image_library` collection to see if a matching image already exists based on keywords. If not, generates a new image via Nano Banana, saves it to Firebase Storage, updates the `screens` document, and saves the new image data to `image_library` for future reuse.
 
 ### Phase 4: Self-Improving Loop
 
