@@ -24,8 +24,7 @@ Trigger this rule via @-mention when creating a new agent rule document or updat
 | `functions/docs/design_guidelines.md` | Design Agent | Visual asset prompting rules and constraints |
 | `functions/docs/telemetry_rules.md` | Telemetry Agent | Micro and macro data triggers |
 | `functions/docs/financial_standards.md` | Creator Agent | PISA financial literacy pillars and topic boundaries |
-| `functions/docs/lesson_guidelines.md` | Creator Agent | V1 swipe format: mobile screen constraints, tone, and JSON output rules |
-| `functions/docs/lesson_guidelines_v2.md` | Creator Agent | V2 interactive format: 5-question drill-down, feedback banners, Learn More lightboxes; one clearly correct MCQ option per question |
+| `functions/docs/lesson_guidelines.md` | Creator Agent | Interactive format: 5-question drill-down, feedback banners, Learn More lightboxes; one clearly correct MCQ option per question |
 | `functions/docs/day2_open_banking_agent.md` | Open Banking Agent (Day 2) | Middleware data-mapper rules for ATMI personalisation |
 | `functions/docs/agent_architecture.md` | All | System-wide pipeline architecture |
 

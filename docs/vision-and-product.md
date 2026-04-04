@@ -16,9 +16,7 @@
 The product operates on a strictly sequential user experience: **See -> Learn -> Act**. A user must pass through Layer 2 (Learn) before arriving at Layer 3 (Act) for any topic.
 
 1. **LAYER 1: SEE** -- Open Banking financial overview (savings, debt, income, mortgage, pension, spending). Day 2 feature requiring AISP integration (TrueLayer/Finexer). Users see derived signals, never raw transaction data.
-2. **LAYER 2: LEARN** -- Goal-driven micro-lessons delivered in two A/B-tested formats:
-   - **Format A (v1_swipe):** 8-11 screen linear flow for rapid swiping.
-   - **Format B (v2_interactive):** 5-question drill-down with feedback banners and nested Learn More lightboxes.
+2. **LAYER 2: LEARN** -- Goal-driven micro-lessons in v2_interactive format: 5-question drill-down with feedback banners and nested Learn More lightboxes.
 3. **LAYER 3: ACT** -- Compare products and switch providers based on education-informed decisions. Mulo earns referral commissions on these switches.
 
 ## App Structure
@@ -67,13 +65,13 @@ See `requirements/features/profile-tab.md`.
 ```
 Topic (8 fixed categories)
   └── Programme (ordered sequence of lessons under a topic)
-       └── Lesson (single learning unit; stored as both v1_swipe and v2_interactive variants -- app or experiments choose which to play)
-            └── Question/Screen (5 questions in v2, 8-11 screens in v1)
+       └── Lesson (single learning unit in v2_interactive format)
+            └── Question/Screen (5 questions per lesson)
 ```
 
 * **Topics** -- The 8 core areas of financial education. Each topic contains multiple programmes.
 * **Programmes** -- A curated sequence of lessons. Hand-crafted (`core_lessons`) or AI-generated (`user_lessons`). Each programme belongs to one topic and may be tagged to one or more goals.
-* **Lessons** -- Individual learning units. One of two formats (A/B tested). See `requirements/features/lesson-format-v2.md` and `functions/docs/lesson_guidelines.md`.
+* **Lessons** -- Individual learning units in v2_interactive format. See `requirements/features/lesson-format.md` and `functions/docs/lesson_guidelines.md`.
 * **Questions/Screens** -- The atomic content unit. In V2, each question has a feedback layer and an optional Learn More drill-down.
 
 ## Goals System
@@ -117,7 +115,7 @@ Mulo operates a 9-agent pipeline powered by Gemini AI. The canonical architectur
 * **Orchestrator Agent** -- Coordinates the pipeline
 * **Creator Agent** (Maker) -- Generates lesson content as structured JSON
 * **Compliance Agent** (Checker) -- FCA Consumer Duty validation
-* **Design Agent** -- Lottie animation briefs (v1_swipe only)
+* **Design Agent** -- Lottie animation briefs
 * **Engagement Agent** -- Gamification and hook elements
 * **Tone & Readability Agent** -- UK English, reading age, word limits
 * **Visual Learning Agent** -- Visual asset selection
@@ -130,7 +128,7 @@ The core safety mechanism is the **Maker-Checker loop**: Creator drafts -> Compl
 
 | Feature | Day 1 (MVP) | Day 2 |
 |---------|-------------|-------|
-| Layer 2 (Learn) | Core lesson delivery, both formats | Advanced personalisation |
+| Layer 2 (Learn) | Core lesson delivery | Advanced personalisation |
 | Open Banking (Layer 1) | Not connected | AISP integration, derived signals |
 | Apply to My Money | Post-lesson card with constants | Per-question embedded in Learn More with real data |
 | Trending Content | Manual curation | AI-generated from news |

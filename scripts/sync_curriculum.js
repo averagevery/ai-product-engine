@@ -3,12 +3,11 @@
  *
  * Scans requirements/content/programmes/ for hand-crafted curriculum:
  * - `programme.md` -- YAML frontmatter with programme metadata + ordered lessons array
- * - `{slug}.md` -- v1_swipe: YAML frontmatter + ## Screen headings
- * - `{slug}.v2.md` -- v2_interactive: YAML frontmatter + ## Question headings + learnMore
+ * - `{slug}.md` -- v2_interactive: YAML frontmatter + ## Question headings + learnMore
  *
  * Pushes to Firestore:
  * - programmes/{programmeId} (from programme.md)
- * - core_lessons/{slug} + core_lessons/{slug}--v2 (with lessonOrder from programme.md)
+ * - core_lessons/{slug} (with lessonOrder from programme.md)
  * - screens/{auto-id} (linked by lessonId, lessonType: "core")
  *
  * Usage:
@@ -40,8 +39,6 @@ const REPO_ROOT = path.join(__dirname, "..");
 /**
  * If GOOGLE_APPLICATION_CREDENTIALS is unset, use a key in `.secrets/` so
  * teammates can run `npm run sync-curriculum` without Windows env-var setup.
- * Preferred file: `.secrets/firebase-adminsdk.json`
- * Fallback: the only `*.json` file in `.secrets/` (if exactly one).
  */
 function ensureLocalServiceAccountFromSecretsFolder() {
   if (DRY_RUN) {
@@ -73,8 +70,7 @@ function ensureLocalServiceAccountFromSecretsFolder() {
 ensureLocalServiceAccountFromSecretsFolder();
 
 /**
- * Firebase Admin needs a project ID when it cannot infer one from credentials
- * (common on Windows / local service-account JSON / ADC without gcloud project).
+ * Firebase Admin needs a project ID when it cannot infer one from credentials.
  */
 function resolveFirebaseProjectId() {
   const fromEnv =
@@ -109,7 +105,7 @@ function getFirestore() {
     if (!admin.apps.length) {
       const projectId = resolveFirebaseProjectId();
       if (projectId) {
-        admin.initializeApp({projectId});
+        admin.initializeApp({ projectId });
       } else {
         admin.initializeApp();
       }
@@ -147,223 +143,10 @@ function matterLessonFile(raw) {
 }
 
 /**
- * Parse ## Screen headings from markdown body into structured screen objects.
- * Each heading becomes a separate Firestore screen document.
- */
-function parseScreens(markdownBody) {
-  const screens = [];
-  const headingPattern = /^## Screen (\d+):\s*(.+)$/gm;
-  const sections = markdownBody.split(/^## Screen \d+:.+$/m).slice(1);
-  const headings = [...markdownBody.matchAll(headingPattern)];
-
-  headings.forEach((match, i) => {
-    const screenNumber = parseInt(match[1], 10);
-    const sectionBody = (sections[i] || "").trim();
-
-    const fields = {};
-    const fieldPattern = /^\*\*(\w+):\*\*\s*(.+)$/gm;
-    let fieldMatch;
-    while ((fieldMatch = fieldPattern.exec(sectionBody)) !== null) {
-      fields[fieldMatch[1]] = fieldMatch[2].trim();
-    }
-
-    const options = [];
-    const optionPattern = /^- ([A-D])\)\s*(.+)$/gm;
-    let optionMatch;
-    while ((optionMatch = optionPattern.exec(sectionBody)) !== null) {
-      options.push({ letter: optionMatch[1], text: optionMatch[2].trim() });
-    }
-
-    screens.push({
-      screenNumber,
-      screenType: fields.screenType || "Standard",
-      headline: fields.headline || "",
-      paragraph: fields.paragraph || "",
-      question: fields.question || "",
-      optionA: options.find((o) => o.letter === "A")?.text || "",
-      optionB: options.find((o) => o.letter === "B")?.text || "",
-      optionC: options.find((o) => o.letter === "C")?.text || "",
-      optionD: options.find((o) => o.letter === "D")?.text || "",
-      questionAnswer: fields.questionAnswer || "",
-      feedbackCorrect: fields.feedbackCorrect || "",
-      feedbackIncorrect: fields.feedbackIncorrect || "",
-      keyTakeaway1: fields.keyTakeaway1 || "",
-      keyTakeaway2: fields.keyTakeaway2 || "",
-      keyTakeaway3: fields.keyTakeaway3 || "",
-      LottieSuggestion: fields.LottieSuggestion || "",
-      lottieURL: "",
-    });
-  });
-
-  return screens;
-}
-
-const V1_MIN_SCREENS = 8;
-const V1_MAX_SCREENS = 11;
-
-/**
- * Validate parsed v1_swipe screens and frontmatter. Returns human-readable error strings.
- */
-function validateV1Lesson(lessonSlug, programmeId, frontmatter, screens) {
-  const errors = [];
-  const fmProg = (frontmatter.programmeId || "").trim();
-  if (fmProg && fmProg !== programmeId) {
-    errors.push(
-      `${lessonSlug}: frontmatter programmeId "${fmProg}" does not match folder "${programmeId}"`,
-    );
-  }
-  if (!(frontmatter.lessonName || "").trim()) {
-    errors.push(`${lessonSlug}: frontmatter lessonName is missing or empty`);
-  }
-  if (!(frontmatter.category || "").trim()) {
-    errors.push(`${lessonSlug}: frontmatter category is missing or empty`);
-  }
-
-  if (screens.length === 0) {
-    errors.push(`${lessonSlug}: no ## Screen sections parsed (check headings)`);
-    return errors;
-  }
-  if (screens.length < V1_MIN_SCREENS || screens.length > V1_MAX_SCREENS) {
-    errors.push(
-      `${lessonSlug}: expected ${V1_MIN_SCREENS}-${V1_MAX_SCREENS} screens (v1_swipe), found ${screens.length}`,
-    );
-  }
-
-  screens.forEach((screen, idx) => {
-    const n = screen.screenNumber;
-    const label = `${lessonSlug} screen #${n} (index ${idx + 1})`;
-    if (n !== idx + 1) {
-      errors.push(
-        `${label}: screenNumber ${n} is out of sequence (expected ${idx + 1})`,
-      );
-    }
-    const st = (screen.screenType || "").toLowerCase();
-    if (st === "question") {
-      if (!(screen.question || "").trim()) {
-        errors.push(`${label}: screenType question requires **question:**`);
-      }
-      ["A", "B", "C", "D"].forEach((L) => {
-        const key = `option${L}`;
-        if (!(screen[key] || "").trim()) {
-          errors.push(`${label}: missing or empty option${L}`);
-        }
-      });
-      const ans = (screen.questionAnswer || "").trim().toUpperCase();
-      if (!["A", "B", "C", "D"].includes(ans)) {
-        errors.push(
-          `${label}: questionAnswer must be A, B, C, or D (got "${screen.questionAnswer}")`,
-        );
-      }
-    }
-    if (st === "summary") {
-      if (
-        !(screen.keyTakeaway1 || "").trim() ||
-        !(screen.keyTakeaway2 || "").trim() ||
-        !(screen.keyTakeaway3 || "").trim()
-      ) {
-        errors.push(
-          `${label}: screenType summary requires keyTakeaway1, keyTakeaway2, keyTakeaway3`,
-        );
-      }
-    }
-  });
-
-  return errors;
-}
-
-/**
- * Sync a single v1_swipe lesson file to Firestore.
- */
-async function syncLesson(filePath, programmeId, lessonOrder) {
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const sourceSha256 = sha256Utf8(raw);
-  const { data: frontmatter, content } = matterLessonFile(raw);
-
-  const lessonSlug = path.basename(filePath, ".md");
-  const screens = parseScreens(content);
-
-  const validationErrors = validateV1Lesson(
-    lessonSlug,
-    programmeId,
-    frontmatter,
-    screens,
-  );
-  if (validationErrors.length > 0) {
-    return { synced: false, errors: validationErrors };
-  }
-
-  const relativePath = path.relative(
-    path.resolve(__dirname, ".."),
-    filePath,
-  ).replace(/\\/g, "/");
-
-  const db = getFirestore();
-  if (!db) {
-    return { synced: true, screenCount: screens.length, dryRun: true };
-  }
-
-  if (
-    !FORCE_SYNC &&
-    (await lessonIsUpToDateInFirestore(
-      db,
-      lessonSlug,
-      sourceSha256,
-      screens.length,
-    ))
-  ) {
-    console.log(`  Unchanged ${lessonSlug} (file hash + screen rows match Firestore)`);
-    return { skipped: true, screenCount: screens.length };
-  }
-
-  const cleared = await deleteExistingCoreScreens(lessonSlug);
-  if (cleared > 0) {
-    console.log(`  Cleared ${cleared} existing screens for ${lessonSlug}`);
-  }
-
-  const batch = db.batch();
-
-  const lessonRef = db.collection("core_lessons").doc(lessonSlug);
-  const lessonDoc = {
-    programmeId,
-    category: frontmatter.category || "",
-    lessonName: frontmatter.lessonName || lessonSlug,
-    lessonFormat: "v1_swipe",
-    lessonLevel: frontmatter.lessonLevel || "",
-    lessonTime: frontmatter.lessonTime || "",
-    persona: frontmatter.persona || "",
-    screenCount: screens.length,
-    sourceSha256,
-    syncedAt: admin.firestore.FieldValue.serverTimestamp(),
-    syncedFrom: relativePath,
-  };
-  if (Number.isInteger(lessonOrder)) {
-    lessonDoc.lessonOrder = lessonOrder;
-  }
-  batch.set(lessonRef, lessonDoc);
-
-  screens.forEach((screen) => {
-    const screenRef = db.collection("screens").doc();
-    batch.set(screenRef, {
-      lessonId: lessonSlug,
-      lessonType: "core",
-      lessonFormat: "v1_swipe",
-      lessonName: frontmatter.lessonName || lessonSlug,
-      userID: null,
-      requestID: null,
-      learningStyle: null,
-      ...screen,
-    });
-  });
-
-  await batch.commit();
-  return { synced: true, screenCount: screens.length, skipped: false };
-}
-
-/**
- * Parse ## Question headings from v2 markdown into structured screen objects.
+ * Parse ## Question headings from markdown into structured screen objects.
  * Each question becomes a Firestore screen with a nested learnMore map.
  */
-function parseV2Screens(markdownBody) {
+function parseScreens(markdownBody) {
   const screens = [];
   const questionPattern = /^## Question (\d+):/gm;
   const sections = markdownBody.split(/^## Question \d+:.+$/m).slice(1);
@@ -409,9 +192,9 @@ function parseV2Screens(markdownBody) {
 }
 
 /**
- * Validate parsed v2_interactive screens and frontmatter.
+ * Validate parsed lesson screens and frontmatter. Returns human-readable error strings.
  */
-function validateV2Lesson(lessonSlug, baseSlug, programmeId, frontmatter, screens) {
+function validateLesson(lessonSlug, programmeId, frontmatter, screens) {
   const errors = [];
   const fmProg = (frontmatter.programmeId || "").trim();
   if (fmProg && fmProg !== programmeId) {
@@ -437,7 +220,7 @@ function validateV2Lesson(lessonSlug, baseSlug, programmeId, frontmatter, screen
   }
   if (screens.length !== 5) {
     errors.push(
-      `${lessonSlug}: v2_interactive requires exactly 5 questions, found ${screens.length}`,
+      `${lessonSlug}: requires exactly 5 questions, found ${screens.length}`,
     );
   }
 
@@ -539,9 +322,6 @@ function validateV2Lesson(lessonSlug, baseSlug, programmeId, frontmatter, screen
   return errors;
 }
 
-/**
- * Parse the ### learnMore sub-section within a question block.
- */
 function parseLearnMore(sectionBody) {
   const learnMoreSplit = sectionBody.split(/^### learnMore$/m);
   if (learnMoreSplit.length < 2) return null;
@@ -581,9 +361,6 @@ function parseLearnMore(sectionBody) {
   return learnMore;
 }
 
-/**
- * Parse #### Slide N: headings into story carousel array.
- */
 function parseSlides(lmBody) {
   const slides = [];
   const slidePattern = /^#### Slide \d+:/gm;
@@ -608,9 +385,6 @@ function parseSlides(lmBody) {
   return slides;
 }
 
-/**
- * Parse #### Card N: headings into breakdown cards array.
- */
 function parseBreakdownCards(lmBody) {
   const cards = [];
   const cardPattern = /^#### Card \d+:/gm;
@@ -663,9 +437,6 @@ function parseBreakdownCards(lmBody) {
   return cards;
 }
 
-/**
- * Parse - Takeaway: lines into array of strings.
- */
 function parseTakeaways(lmBody) {
   const takeaways = [];
   const pattern = /^- Takeaway:\s*(.+)$/gm;
@@ -676,19 +447,12 @@ function parseTakeaways(lmBody) {
   return takeaways;
 }
 
-/**
- * Parse programme.md YAML frontmatter into structured data.
- * Returns { data, content } where data has programmeName, category, persona, etc.
- */
 function parseProgramme(filePath) {
   const raw = fs.readFileSync(filePath, "utf-8");
   const { data, content } = matterLessonFile(raw);
   return { data, content, raw };
 }
 
-/**
- * Validate parsed programme frontmatter. Returns human-readable error strings.
- */
 function validateProgramme(programmeId, frontmatter) {
   const errors = [];
   if (!(frontmatter.programmeName || "").trim()) {
@@ -722,9 +486,6 @@ function validateProgramme(programmeId, frontmatter) {
   return errors;
 }
 
-/**
- * Check if a programmes doc is up to date in Firestore (same sourceSha256 + lessonCount).
- */
 async function programmeIsUpToDateInFirestore(db, programmeId, sourceSha256, lessonCount) {
   const snap = await db.collection("programmes").doc(programmeId).get();
   if (!snap.exists) return false;
@@ -732,10 +493,6 @@ async function programmeIsUpToDateInFirestore(db, programmeId, sourceSha256, les
   return (prev.sourceSha256 || "") === sourceSha256 && prev.lessonCount === lessonCount;
 }
 
-/**
- * Sync a programme.md to Firestore programmes/{programmeId}.
- * Returns { synced, skipped, errors, lessons }.
- */
 async function syncProgramme(filePath, programmeId) {
   const { data: frontmatter, raw } = parseProgramme(filePath);
   const sourceSha256 = sha256Utf8(raw);
@@ -784,21 +541,19 @@ async function syncProgramme(filePath, programmeId) {
 }
 
 /**
- * Sync a single v2_interactive lesson file to Firestore.
- * The doc ID uses {baseSlug}--v2 to distinguish from the v1 doc.
+ * Sync a single lesson file to Firestore.
+ * Doc ID is the slug (filename without .md).
  */
-async function syncV2Lesson(filePath, programmeId, lessonOrder) {
+async function syncLesson(filePath, programmeId, lessonOrder) {
   const raw = fs.readFileSync(filePath, "utf-8");
   const sourceSha256 = sha256Utf8(raw);
   const { data: frontmatter, content } = matterLessonFile(raw);
 
-  const baseSlug = path.basename(filePath, ".v2.md");
-  const lessonSlug = baseSlug + "--v2";
-  const screens = parseV2Screens(content);
+  const lessonSlug = path.basename(filePath, ".md");
+  const screens = parseScreens(content);
 
-  const validationErrors = validateV2Lesson(
+  const validationErrors = validateLesson(
     lessonSlug,
-    baseSlug,
     programmeId,
     frontmatter,
     screens,
@@ -825,9 +580,7 @@ async function syncV2Lesson(filePath, programmeId, lessonOrder) {
       screens.length,
     ))
   ) {
-    console.log(
-      `  Unchanged ${lessonSlug} (file hash + screen rows match Firestore)`,
-    );
+    console.log(`  Unchanged ${lessonSlug} (file hash + screen rows match Firestore)`);
     return { skipped: true, screenCount: screens.length };
   }
 
@@ -842,7 +595,7 @@ async function syncV2Lesson(filePath, programmeId, lessonOrder) {
   const lessonDoc = {
     programmeId,
     category: frontmatter.category || "",
-    lessonName: frontmatter.lessonName || baseSlug,
+    lessonName: frontmatter.lessonName || lessonSlug,
     lessonFormat: "v2_interactive",
     lessonLevel: frontmatter.lessonLevel || "",
     lessonTime: frontmatter.lessonTime || "",
@@ -858,13 +611,13 @@ async function syncV2Lesson(filePath, programmeId, lessonOrder) {
   batch.set(lessonRef, lessonDoc);
 
   screens.forEach((screen) => {
-    const {correctIndexRaw: _drop, ...screenDoc} = screen;
+    const { correctIndexRaw: _drop, ...screenDoc } = screen;
     const screenRef = db.collection("screens").doc();
     batch.set(screenRef, {
       lessonId: lessonSlug,
       lessonType: "core",
       lessonFormat: "v2_interactive",
-      lessonName: frontmatter.lessonName || baseSlug,
+      lessonName: frontmatter.lessonName || lessonSlug,
       userID: null,
       requestID: null,
       learningStyle: null,
@@ -876,9 +629,6 @@ async function syncV2Lesson(filePath, programmeId, lessonOrder) {
   return { synced: true, screenCount: screens.length, skipped: false };
 }
 
-/**
- * Delete existing core screens for a lesson before re-syncing.
- */
 async function deleteExistingCoreScreens(lessonSlug) {
   const db = getFirestore();
   if (!db) {
@@ -902,9 +652,6 @@ function sha256Utf8(text) {
   return crypto.createHash("sha256").update(text, "utf8").digest("hex");
 }
 
-/**
- * True if core_lessons exists with matching sourceSha256 and screen row count matches parsed lesson.
- */
 async function lessonIsUpToDateInFirestore(db, lessonDocId, sourceSha256, expectedScreenCount) {
   const lessonSnap = await db.collection("core_lessons").doc(lessonDocId).get();
   if (!lessonSnap.exists) {
@@ -922,9 +669,6 @@ async function lessonIsUpToDateInFirestore(db, lessonDocId, sourceSha256, expect
   return screenSnap.size === expectedScreenCount;
 }
 
-/**
- * Remove core_lessons doc and all core screens for that lesson id.
- */
 async function deleteCoreLessonDocAndScreens(lessonDocId) {
   const db = getFirestore();
   if (!db) {
@@ -935,9 +679,6 @@ async function deleteCoreLessonDocAndScreens(lessonDocId) {
   return n;
 }
 
-/**
- * Delete core lessons in Firestore for this programme that are not in expectedDocIds (repo = source of truth).
- */
 async function pruneOrphanedCoreLessons(expectedByProgramme) {
   const db = getFirestore();
   if (!db) {
@@ -962,10 +703,6 @@ async function pruneOrphanedCoreLessons(expectedByProgramme) {
   return pruned;
 }
 
-/**
- * Delete programmes docs in Firestore that no longer have a matching folder in the repo.
- * Cascades: removes all core_lessons + screens for that programmeId too.
- */
 async function pruneOrphanedProgrammes(expectedProgrammeIds) {
   const db = getFirestore();
   if (!db) return 0;
@@ -1010,7 +747,7 @@ Curriculum sync needs Firebase Admin credentials for a local run. Either:
   • Set GOOGLE_APPLICATION_CREDENTIALS to the full path of that JSON.
 
 For the usual team flow (no local key), merge to main and use GitHub Actions
-— see docs/partner-curriculum-sync.md
+— see docs/partner-guide.md
 `);
       process.exit(1);
     }
@@ -1041,7 +778,6 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
     console.log(`\nProgramme: ${programmeId}`);
     expectedProgrammeIds.add(programmeId);
 
-    // --- Phase 1: parse & sync programme.md ---
     const programmeMdPath = path.join(programmeDir, "programme.md");
     let lessonOrderMap = new Map();
 
@@ -1064,7 +800,6 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
       console.log("  No programme.md found -- skipping programme sync.");
     }
 
-    // --- Phase 2: parse & sync lessons ---
     const lessonFiles = fs
       .readdirSync(programmeDir)
       .filter((f) => f.endsWith(".md") && f !== "programme.md");
@@ -1077,65 +812,32 @@ For the usual team flow (no local key), merge to main and use GitHub Actions
 
     const expectedIds = new Set();
     for (const lessonFile of lessonFiles) {
-      if (lessonFile.endsWith(".v2.md")) {
-        expectedIds.add(path.basename(lessonFile, ".v2.md") + "--v2");
-      } else {
-        expectedIds.add(path.basename(lessonFile, ".md"));
-      }
+      expectedIds.add(path.basename(lessonFile, ".md"));
     }
     expectedByProgramme.set(programmeId, expectedIds);
 
     for (const lessonFile of lessonFiles) {
       const filePath = path.join(programmeDir, lessonFile);
-      const isV2 = lessonFile.endsWith(".v2.md");
+      const lessonSlug = path.basename(lessonFile, ".md");
+      const order = lessonOrderMap.get(lessonSlug);
 
-      if (isV2) {
-        const baseSlug = path.basename(lessonFile, ".v2.md");
-        const v2Slug = baseSlug + "--v2";
-        const order = lessonOrderMap.get(baseSlug);
-
-        const result = await syncV2Lesson(filePath, programmeId, order);
-        if (result.errors && result.errors.length > 0) {
-          validationFailed = true;
-          result.errors.forEach((msg) =>
-            console.error(`  VALIDATION ERROR: ${msg}`),
-          );
-          continue;
-        }
-        if (result.skipped) {
-          totalSkipped += 1;
-          continue;
-        }
-        if (result.synced) {
-          totalLessons++;
-          totalScreens += result.screenCount;
-          const tag = result.dryRun ? "validated (dry-run)" : "Synced";
-          console.log(`  ${tag} ${v2Slug} (${result.screenCount} screens, v2)`);
-        }
-      } else {
-        const lessonSlug = path.basename(lessonFile, ".md");
-        const order = lessonOrderMap.get(lessonSlug);
-
-        const result = await syncLesson(filePath, programmeId, order);
-        if (result.errors && result.errors.length > 0) {
-          validationFailed = true;
-          result.errors.forEach((msg) =>
-            console.error(`  VALIDATION ERROR: ${msg}`),
-          );
-          continue;
-        }
-        if (result.skipped) {
-          totalSkipped += 1;
-          continue;
-        }
-        if (result.synced) {
-          totalLessons++;
-          totalScreens += result.screenCount;
-          const tag = result.dryRun ? "validated (dry-run)" : "Synced";
-          console.log(
-            `  ${tag} ${lessonSlug} (${result.screenCount} screens, v1)`,
-          );
-        }
+      const result = await syncLesson(filePath, programmeId, order);
+      if (result.errors && result.errors.length > 0) {
+        validationFailed = true;
+        result.errors.forEach((msg) =>
+          console.error(`  VALIDATION ERROR: ${msg}`),
+        );
+        continue;
+      }
+      if (result.skipped) {
+        totalSkipped += 1;
+        continue;
+      }
+      if (result.synced) {
+        totalLessons++;
+        totalScreens += result.screenCount;
+        const tag = result.dryRun ? "validated (dry-run)" : "Synced";
+        console.log(`  ${tag} ${lessonSlug} (${result.screenCount} screens)`);
       }
     }
   }
@@ -1181,9 +883,7 @@ if (require.main === module) {
 
 module.exports = {
   parseScreens,
-  parseV2Screens,
+  validateLesson,
   parseProgramme,
-  validateV1Lesson,
-  validateV2Lesson,
   validateProgramme,
 };

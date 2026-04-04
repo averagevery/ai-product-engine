@@ -1,26 +1,20 @@
 const fs = require("fs").promises;
 const path = require("path");
 
-const cachedContextByFormat = {};
+let cachedContext = null;
 
 /**
  * Load contextual markdown for the Creator Agent.
- * Routes to the correct lesson guideline file based on lessonFormat.
+ * Always loads lesson_guidelines.md (v2_interactive format).
  *
- * @param {"v1_swipe" | "v2_interactive"} [lessonFormat="v1_swipe"]
  * @returns {Promise<{financialStandards: string, lessonGuidelines: string}>}
  */
-async function loadCreatorContext(lessonFormat = "v1_swipe") {
-  if (cachedContextByFormat[lessonFormat]) {
-    return cachedContextByFormat[lessonFormat];
+async function loadCreatorContext() {
+  if (cachedContext) {
+    return cachedContext;
   }
 
   const docsDir = path.resolve(__dirname, "..", "docs");
-
-  const guidelinesFile =
-    lessonFormat === "v2_interactive"
-      ? "lesson_guidelines_v2.md"
-      : "lesson_guidelines.md";
 
   const [financialStandards, lessonGuidelines] = await Promise.all([
     fs.readFile(
@@ -28,32 +22,22 @@ async function loadCreatorContext(lessonFormat = "v1_swipe") {
       "utf8",
     ),
     fs.readFile(
-      path.join(docsDir, guidelinesFile),
+      path.join(docsDir, "lesson_guidelines.md"),
       "utf8",
     ),
   ]);
 
-  cachedContextByFormat[lessonFormat] = {financialStandards, lessonGuidelines};
-  return cachedContextByFormat[lessonFormat];
+  cachedContext = { financialStandards, lessonGuidelines };
+  return cachedContext;
 }
 
 /**
  * Build the Creator Agent prompt from the lesson request and context.
- *
- * @param {{
- *   request: any;
- *   requestId: string;
- *   attempt: number;
- *   lastComplianceReason?: string | null;
- * }} lessonRequest
- * @param {{financialStandards: string, lessonGuidelines: string}} context
- * @returns {string}
  */
 function buildCreatorPrompt(lessonRequest, context) {
-  const {request, requestId, attempt, lastComplianceReason} = lessonRequest;
-  const {financialStandards, lessonGuidelines} = context;
+  const { request, requestId, attempt, lastComplianceReason } = lessonRequest;
+  const { financialStandards, lessonGuidelines } = context;
 
-  const lessonFormat = request.lessonFormat || "v1_swipe";
   const style = request.learningStyle || "Conversational";
 
   const refinement =
@@ -71,7 +55,7 @@ You MUST fix all issues highlighted above. Regenerate the entire lesson JSON fro
 You are the Creator Agent for 'Mulo', an autonomous UK financial education app.
 Target Audience: 16–25 year olds in the UK.
 Tone: Friendly, human, non-judgemental, UK English spelling, £ only.
-Lesson Format: ${lessonFormat}
+Lesson Format: v2_interactive
 
 Follow these documents exactly:
 ---
@@ -86,15 +70,12 @@ Your job is to draft ONE lesson as strict JSON matching the Firestore schema bel
 Do NOT include any Markdown, commentary, or code fences.
 Return ONLY a single JSON object.`;
 
-  const schemaHint =
-    lessonFormat === "v2_interactive"
-      ? buildV2SchemaHint()
-      : buildV1SchemaHint();
+  const schemaHint = buildSchemaHint();
 
   const userSection = `
 LESSON REQUEST CONTEXT:
 - requestId: ${requestId}
-- lessonFormat: ${lessonFormat}
+- lessonFormat: v2_interactive
 - category: ${request.category || "Custom"}
 - moduleName: ${request.moduleName || ""}
 - lessonName: ${request.lessonName || topic}
@@ -118,50 +99,9 @@ Write the JSON lesson now.`;
 }
 
 /**
- * @returns {string} Schema hint for v1_swipe (8-11 screen sequential).
- */
-function buildV1SchemaHint() {
-  return `
-REQUIRED OUTPUT SHAPE (STRICT -- v1_swipe):
-{
-  "lesson_metadata": {
-    "goal": string,
-    "goalOrder": number,
-    "difficulty_level": "Beginner" | "Intermediate" | "Expert",
-    "estimated_time": string
-  },
-  "screens": [
-    {
-      "screenType": "Standard" | "Question" | "Summary",
-      "headline": string,
-      "paragraph": string,
-      "question": string,
-      "optionA": string,
-      "optionB": string,
-      "optionC": string,
-      "optionD": string,
-      "questionAnswer": "A" | "B" | "C" | "D" | "",
-      "feedbackCorrect": string,
-      "feedbackIncorrect": string,
-      "keyTakeaway1": string,
-      "keyTakeaway2": string,
-      "keyTakeaway3": string,
-      "LottieSuggestion": string,
-      "lottieURL": string
-    }
-  ]
-}
-
-SCREENS:
-- Produce 8-11 screens total, following the required flow from lesson_guidelines.md.
-- Respect all hard character limits for headline, body, questions, options, feedback, and takeaways.
-- Ensure the content is strictly educational and does NOT give personalised financial advice.`;
-}
-
-/**
  * @returns {string} Schema hint for v2_interactive (5-question drill-down).
  */
-function buildV2SchemaHint() {
+function buildSchemaHint() {
   return `
 REQUIRED OUTPUT SHAPE (STRICT -- v2_interactive):
 {
@@ -200,7 +140,7 @@ REQUIRED OUTPUT SHAPE (STRICT -- v2_interactive):
 }
 
 SCREENS:
-- Produce exactly 5 question screens, following the structure from lesson_guidelines_v2.md.
+- Produce exactly 5 question screens, following the structure from lesson_guidelines.md.
 - Each screen MUST include questionText, emoji, options (4), correctIndex, feedbackCorrect, feedbackIncorrect, and a full learnMore object.
 - storyCarousel must have exactly 5 slides; breakdownCards must have exactly 2 cards using different types.
 - Every breakdownCard MUST have a "caption" field (one explanatory sentence) PLUS its type-specific fields.
@@ -208,19 +148,15 @@ SCREENS:
 - Set applyToMyMoney to null (Day 1 MVP -- omit this section entirely).
 - actionLink is optional -- set to null if no approved external tool applies. When included, use "description" (not "source").
 - Approved actionLink sources only: MoneyHelper, Gov.uk, ClearScore, Credit Karma, HMRC, Turn2us, NHS.
-- Respect all hard word/character limits from lesson_guidelines_v2.md.
+- Respect all hard word/character limits from lesson_guidelines.md.
 - Ensure the content is strictly educational and does NOT give personalised financial advice.`;
 }
 
 /**
  * Parse and normalise the Creator Agent JSON into { lessonMetadata, screens }.
- * Validates screen count based on lessonFormat.
- *
- * @param {string} text
- * @param {"v1_swipe" | "v2_interactive"} [lessonFormat="v1_swipe"]
- * @returns {{lessonMetadata: any, screens: any[]}}
+ * Validates exactly 5 question screens.
  */
-function parseCreatorResponse(text, lessonFormat = "v1_swipe") {
+function parseCreatorResponse(text) {
   if (!text) {
     throw new Error("Empty Creator Agent response.");
   }
@@ -271,19 +207,13 @@ function parseCreatorResponse(text, lessonFormat = "v1_swipe") {
     );
   }
 
-  if (lessonFormat === "v2_interactive" && screens.length !== 5) {
+  if (screens.length !== 5) {
     throw new Error(
       `v2_interactive requires exactly 5 question screens, got ${screens.length}.`,
     );
   }
 
-  if (lessonFormat === "v1_swipe" && (screens.length < 8 || screens.length > 11)) {
-    throw new Error(
-      `v1_swipe requires 8-11 screens, got ${screens.length}.`,
-    );
-  }
-
-  return {lessonMetadata, screens};
+  return { lessonMetadata, screens };
 }
 
 module.exports = {
@@ -291,4 +221,3 @@ module.exports = {
   buildCreatorPrompt,
   parseCreatorResponse,
 };
-

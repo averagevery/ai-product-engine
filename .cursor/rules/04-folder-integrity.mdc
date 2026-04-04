@@ -15,7 +15,7 @@ You are **forbidden** from creating new files in the repository root directory. 
 | Content Type | Required Location | Examples |
 |----|----|----|
 | Content programmes | `requirements/content/programmes/{programme-name}/` | `requirements/content/programmes/lisa-savings/programme.md` |
-| Core lesson files | `requirements/content/programmes/{programme-name}/` | `lisa-penalty-rules.md` (v1) + `lisa-penalty-rules.v2.md` (v2) |
+| Core lesson files | `requirements/content/programmes/{programme-name}/` | `lisa-penalty-rules.md` |
 | App feature specs | `requirements/features/` | `debt-snowball-calculator.md` |
 | Agent behavioural rules | `functions/docs/` | `compliance_rules.md`, `design_guidelines.md` |
 | Knowledge base files | `knowledge/` | `knowledge/personas.md`, `knowledge/glossary.md` |
@@ -37,8 +37,7 @@ Managed by the content/product team. Contains educational programmes and lessons
 
 - `requirements/content/programmes/` -- each programme is a **folder** containing:
   - `programme.md` -- programme metadata (YAML frontmatter, lesson table)
-  - `{lesson-name}.md` -- v1 hand-crafted core lessons (YAML frontmatter + `## Screen` headings).
-  - `{lesson-name}.v2.md` -- v2 hand-crafted core lessons (`## Question` headings + nested learnMore). Both are synced to Firestore `core_lessons` via `npm run sync-curriculum` (v2 doc id `{slug}--v2`).
+  - `{lesson-name}.md` -- hand-crafted core lessons in v2_interactive format (`## Question` headings + nested learnMore). Synced to Firestore `core_lessons` via `npm run sync-curriculum`.
 
 ### `requirements/features/` -- Engineering Domain
 

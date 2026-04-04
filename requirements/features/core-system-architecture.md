@@ -49,64 +49,59 @@
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
-### Two Lesson Paths (always both formats)
+### Two Lesson Paths
 
-Each path produces **two** lesson documents per logical lesson -- one `v1_swipe` and one `v2_interactive` -- same name/metadata, different `lessonFormat` and screen payloads. Screens are still one flat `screens` collection, distinguished by `lessonType` and `lessonFormat`.
+Each path produces one lesson document per logical lesson in the `v2_interactive` format. Screens are stored in one flat `screens` collection, distinguished by `lessonType`.
 
 | Path | Collection | Source | Mutability in App |
 |------|-----------|--------|-------------------|
-| Hand-crafted curriculum | `core_lessons` | Paired markdown in Cursor (`{slug}.md` + `{slug}.v2.md`), synced via `npm run sync-curriculum`. V2 Firestore doc id: `{slug}--v2`. | Read-only |
-| AI-generated lessons | `user_lessons` | Maker-Checker runs **twice in parallel** per `lesson_requests` doc (`v2_interactive` primary, `v1_swipe` fallback); two auto IDs + two screen sets | Read/write |
+| Hand-crafted curriculum | `core_lessons` | Markdown in Cursor (`{slug}.md`), synced via `npm run sync-curriculum`. Firestore doc id: `{slug}`. | Read-only |
+| AI-generated lessons | `user_lessons` | Maker-Checker pipeline runs once per `lesson_requests` doc; one auto ID + one screen set | Read/write |
 
-Both paths write screens to the single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`) and `lessonFormat`.
+Both paths write screens to the single flat `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`).
 
 ---
 
 ## The Maker-Checker Pipeline (AI-Generated Lessons)
 
-Each `lesson_requests` document triggers **two independent** Maker-Checker runs **in parallel** (`Promise.allSettled`): **`v2_interactive` first in code (primary)** and **`v1_swipe` (fallback swipe format)**. A hard error in one run does **not** block the other. Each run has its own Creator + Compliance retry loop (MAX_ATTEMPTS = 3) and its own `commitPassBatch()` (one `user_lessons` doc + N `screens` docs). When both runs finish, `lesson_requests` is updated once with combined status and both lesson IDs.
+Each `lesson_requests` document triggers a single Maker-Checker run in the `v2_interactive` format. The run has its own Creator + Compliance retry loop (MAX_ATTEMPTS = 3) and a `commitPassBatch()` (one `user_lessons` doc + N `screens` docs). When the run finishes, `lesson_requests` is updated with the outcome.
 
 ```
 API Request (lesson_requests/{requestId})
     │
-    ├──────────────────────────────┐
-    ▼                              ▼
- Run A: v2_interactive        Run B: v1_swipe
- Creator → Compliance         Creator → Compliance
- (retry up to 3)             (retry up to 3)
-    │                              │
-    ▼                              ▼
- user_lessons/{id1}           user_lessons/{id2}
- screens/* (Shape B)         screens/* (Shape A)
-    │                              │
-    └──────────────┬───────────────┘
-                   ▼
-        lesson_requests update
-   (completed | partial | failed_compliance)
+    ▼
+ Maker-Checker: v2_interactive
+ Creator → Compliance
+ (retry up to 3)
+    │
+    ▼
+ user_lessons/{id}
+ screens/*
+    │
+    ▼
+ lesson_requests update
+ (completed | failed_compliance)
 ```
 
 ### Loop Rules
 
 1. Triggered by a Firestore `onDocumentCreated` event on `lesson_requests/{requestId}`
-2. The Cloud Function runs the loop **twice in parallel** (v2_interactive and v1_swipe). For each format, the Creator Agent (Maker) drafts a lesson as structured JSON using that format's guideline file
+2. The Creator Agent (Maker) drafts a lesson as structured JSON using the `v2_interactive` guideline file
 3. The Compliance Agent (Checker) validates against FCA Consumer Duty rules
-4. If `"status": "FAIL"`, the reasoning is fed back to the Creator Agent for that format only
-5. If `"status": "PASS"` for a format, that draft proceeds to `commitPassBatch()` for that format (does not update `lesson_requests` yet)
-6. Hard ceiling of `MAX_ATTEMPTS = 3` **per format** prevents infinite loops
+4. If `"status": "FAIL"`, the reasoning is fed back to the Creator Agent
+5. If `"status": "PASS"`, the draft proceeds to `commitPassBatch()`
+6. Hard ceiling of `MAX_ATTEMPTS = 3` prevents infinite loops
 7. **Every** written `user_lessons` document includes a `compliance_audit` field recording the final PASS reasoning, attempt number, and timestamp
-8. Failed attempts are logged to `agent_logs` with a `lessonFormat` field identifying which run failed
+8. Failed attempts are logged to `agent_logs`
 
 ### Failure Paths
 
 | Scenario | Status Written to `lesson_requests` | Logged to `agent_logs` |
 |----------|--------------------------------------|------------------------|
-| Compliance FAIL (attempt < 3) for either format | No update yet (that format's loop continues) | Yes: `status: "FAIL"`, `lessonFormat`, full `lessonDraft`, `reasoning` |
-| Compliance FAIL (attempt = 3) for one format; other may still PASS | Final update after **both** runs: may be `partial` or `failed_compliance` | Yes: `status: "failed_compliance"`, `lessonFormat`, `totalAttempts`, `lastComplianceReason` |
-| Both formats exhaust attempts without PASS | `status: "failed_compliance"` | Yes (per format that failed) |
-| One format PASS, one FAIL | `status: "partial"`, with one of `v1_lessonId` / `v2_lessonId` set | Fail side logged as above |
-| Both formats PASS | `status: "completed"`, both lesson IDs set | No FAIL logs for that request |
-| Unrecoverable JS error (entire function, outside per-format runs) | `status: "error"`, `error_message` | Yes: `status: "error"`, `errorMessage` |
-| Unhandled JS error inside one format run only | Other format still completes; failed format treated as FAIL (`attempts` may be 0) | Optional: log the rejection reason for that format |
+| Compliance FAIL (attempt < 3) | No update yet (loop continues) | Yes: `status: "FAIL"`, full `lessonDraft`, `reasoning` |
+| Compliance FAIL (attempt = 3) | `status: "failed_compliance"` | Yes: `status: "failed_compliance"`, `totalAttempts`, `lastComplianceReason` |
+| Compliance PASS | `status: "completed"`, `lessonId` set | No FAIL logs for that request |
+| Unrecoverable JS error | `status: "error"`, `error_message` | Yes: `status: "error"`, `errorMessage` |
 
 ---
 
@@ -116,25 +111,21 @@ API Request (lesson_requests/{requestId})
 requirements/content/programmes/
   lisa-savings/
     programme.md                    ◄── Programme metadata (YAML frontmatter)
-    lisa-penalty-rules.md           ◄── V1 lesson (frontmatter + ## Screen headings)
-    lisa-penalty-rules.v2.md        ◄── V2 lesson (frontmatter + ## Question headings)
+    lisa-penalty-rules.md           ◄── Lesson (frontmatter + ## Question headings)
     lisa-bonus-explained.md
-    lisa-bonus-explained.v2.md
   debt-foundations/
     programme.md
     understanding-credit-scores.md
-    understanding-credit-scores.v2.md
         │
         │  npm run sync-curriculum
         ▼
   Firestore:
     programmes/{programme-folder}        ◄── Programme metadata (from programme.md YAML)
-    core_lessons/{lesson-slug}           ◄── V1 metadata (lessonFormat: v1_swipe, lessonOrder from programme.md)
-    core_lessons/{lesson-slug}--v2       ◄── V2 metadata (lessonFormat: v2_interactive, lessonOrder from programme.md)
+    core_lessons/{lesson-slug}           ◄── Metadata (lessonFormat: v2_interactive, lessonOrder from programme.md)
     screens/{auto-id}                    ◄── Linked by lessonId; lessonType: "core"
 ```
 
-The sync script (`scripts/sync_curriculum.js`) processes each programme folder in two phases: first it parses `programme.md` YAML frontmatter (programme metadata + ordered `lessons` array) and syncs the `programmes/{id}` document; then it parses each lesson file's YAML frontmatter and content. V1 files use `## Screen N:` headings; `.v2.md` files use `## Question N:` plus nested `learnMore`. It **validates** each parsed lesson before writing (v1: 8–11 screens, question/summary fields; v2: 5 questions, `learnMore` carousel/cards/takeaways, `correctIndex`, etc.). Each lesson's `lessonOrder` is set from the `lessons` array in `programme.md`. Run `npm run validate-curriculum` for the same checks without Firestore.
+The sync script (`scripts/sync_curriculum.js`) processes each programme folder in two phases: first it parses `programme.md` YAML frontmatter (programme metadata + ordered `lessons` array) and syncs the `programmes/{id}` document; then it parses each lesson file's YAML frontmatter and content. Lesson files use `## Question N:` headings plus nested `learnMore`. It **validates** each parsed lesson before writing (5 questions, `learnMore` carousel/cards/takeaways, `correctIndex`, etc.). Each lesson's `lessonOrder` is set from the `lessons` array in `programme.md`. Run `npm run validate-curriculum` for the same checks without Firestore.
 
 **Idempotency and repo as source of truth:** For each programme and lesson file, the script stores `sourceSha256` (hash of the raw markdown on disk). If Firestore already has the same `sourceSha256` and (for lessons) the number of `screens` rows with `lessonType: "core"` matches the parsed screen count, that document is **skipped** (no delete/re-write). If the lesson was removed in the Firebase console, the next sync **recreates** it from the repo. After all programmes are processed, any `core_lessons` document whose `programmeId` matches a programme folder but whose document id is **not** present in that folder’s expected lesson set is **pruned** (document deleted and its core `screens` removed). Any `programmes` document whose id does not match a folder in `requirements/content/programmes/` is also pruned (along with its `core_lessons` and `screens`). Use `--no-prune` to disable pruning, or `--force` to always re-write regardless of hash.
 
@@ -149,7 +140,7 @@ Source: `functions/index.js` and `functions/src/maker_checker_loop.js`
 | Global max instances | `10` | `setGlobalOptions({ maxInstances: 10 })` in `index.js` |
 | Trigger | `onDocumentCreated("lesson_requests/{requestId}")` | `maker_checker_loop.js` exports |
 | Region | `europe-west2` | Function options |
-| Timeout | `240` seconds | Function options (dual format runs) |
+| Timeout | `240` seconds | Function options |
 | Memory | `1GiB` | Function options |
 | Creator model | `gemini-1.5-flash` (env override: `CREATOR_MODEL_NAME`) | `maker_checker_loop.js` |
 | Compliance model | `gemini-1.5-flash` (env override: `COMPLIANCE_MODEL_NAME`) | `maker_checker_loop.js` |
@@ -170,7 +161,7 @@ Programme metadata synced from `programme.md` YAML frontmatter. Read-only in the
 | `persona` | string | Target persona name |
 | `estimatedTime` | string | Total estimated time for the programme |
 | `lessonCount` | number | Number of lessons listed in the frontmatter |
-| `lessons` | array | Ordered array of `{ slug: string, order: number }`. Source of truth for lesson display order. `slug` matches the lesson filename stem (without `.md`/`.v2.md`). |
+| `lessons` | array | Ordered array of `{ slug: string, order: number }`. Source of truth for lesson display order. `slug` matches the lesson filename stem (without `.md`). |
 | `sourceSha256` | string | SHA-256 (hex) of the raw `programme.md` file; used to skip re-writes when unchanged |
 | `syncedAt` | Timestamp | When this programme was last synced |
 | `syncedFrom` | string | Relative file path in the monorepo |
@@ -187,9 +178,9 @@ Hand-crafted lessons synced from the Cursor monorepo. Read-only in the app.
 | `lessonLevel` | string | Beginner / Intermediate / Expert |
 | `lessonTime` | string | Estimated completion time |
 | `persona` | string | Target persona name |
-| `lessonFormat` | string | `"v1_swipe"` or `"v2_interactive"`. Set explicitly on sync (v1 file → v1_swipe; `.v2.md` → v2_interactive). V2 documents use id `{slug}--v2`. |
+| `lessonFormat` | string | Always `"v2_interactive"`. |
 | `lessonOrder` | number | Display order within the programme (1-indexed). Set from the `lessons` array in `programme.md` YAML frontmatter. FlutterFlow queries `core_lessons` filtered by `programmeId` and ordered by `lessonOrder`. |
-| `screenCount` | number | Total number of screens in this lesson (8-11 for v1_swipe, 5 for v2_interactive) |
+| `screenCount` | number | Total number of screens in this lesson (5 for v2_interactive) |
 | `sourceSha256` | string | SHA-256 (hex) of the raw markdown file at last successful sync; used to skip re-writes when unchanged |
 | `syncedAt` | Timestamp | When this lesson was last synced |
 | `syncedFrom` | string | Relative file path in the monorepo |
@@ -207,7 +198,7 @@ AI-generated lessons created by the Maker-Checker pipeline. Read/write in the ap
 | `lessonLevel` | string | From `lessonMetadata.difficulty_level` or original request |
 | `lessonTime` | string | From `lessonMetadata.estimated_time` or original request |
 | `learningStyle` | string | One of: Conversational, Direct & Factual, Question-Based, Storytelling, Analogy-Based |
-| `lessonFormat` | string | `"v1_swipe"` or `"v2_interactive"`. Set per document by the pipeline run that created it; determines screen JSON shape. Each generation request produces up to two documents (one per format). |
+| `lessonFormat` | string | Always `"v2_interactive"`. |
 | `requestID` | string | Unique generation request ID |
 | `goal` | string | From `lessonMetadata.goal` |
 | `goalOrder` | number | From `lessonMetadata.goalOrder` (defaults to `1`) |
@@ -220,47 +211,21 @@ AI-generated lessons created by the Maker-Checker pipeline. Read/write in the ap
 
 Individual screens belonging to a lesson. Stored as a **flat top-level collection** with auto-generated doc IDs, linked to the parent via `lessonId`. Contains screens for both core and user lessons, distinguished by `lessonType`.
 
-The parent lesson's `lessonFormat` field determines which payload shape is used. The Creator Agent outputs one of two JSON structures described below.
-
-#### Common Fields (both shapes)
+#### Common Fields
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `lessonId` | string | ID of the parent `core_lessons` or `user_lessons` document |
 | `lessonType` | string | `"core"` (synced from markdown) or `"user"` (AI-generated) |
-| `lessonFormat` | string | `"v1_swipe"` or `"v2_interactive"` -- mirrors parent lesson |
+| `lessonFormat` | string | Always `"v2_interactive"` |
 | `userID` | string | Owner ID (for user lessons; `null` for core lessons) |
 | `lessonName` | string | Display name (mirrors parent lesson) |
 | `requestID` | string | Generation request ID (user lessons only; `null` for core) |
 | `screenNumber` | number | Display order within the lesson (1-indexed) |
 
-#### Shape A: `v1_swipe` (8-11 Screen Sequential)
+#### Screen Fields: `v2_interactive` (5-Question Drill-Down)
 
-Used when `lessonFormat` = `"v1_swipe"` (or missing/undefined). Each lesson produces 8-11 screen documents following a Hook -> Learn -> Reflect -> Question -> Summary flow.
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `learningStyle` | string | Mirrors parent lesson (user lessons only; `null` for core) |
-| `screenType` | string | `"Standard"`, `"Question"`, or `"Summary"` |
-| `headline` | string | Max 7 words (defaults to `""`) |
-| `paragraph` | string | Max 25 words (defaults to `""`) |
-| `question` | string | Max 12 words (defaults to `""`) |
-| `optionA` | string | Max 12 words (defaults to `""`) |
-| `optionB` | string | Max 12 words (defaults to `""`) |
-| `optionC` | string | Max 12 words (defaults to `""`) |
-| `optionD` | string | Max 12 words (defaults to `""`) |
-| `questionAnswer` | string | `"A"`, `"B"`, `"C"`, `"D"`, or `""` |
-| `feedbackCorrect` | string | Max 25 words (defaults to `""`) |
-| `feedbackIncorrect` | string | Max 25 words (defaults to `""`) |
-| `keyTakeaway1` | string | Max 15 words (defaults to `""`) |
-| `keyTakeaway2` | string | Max 15 words (defaults to `""`) |
-| `keyTakeaway3` | string | Max 15 words (defaults to `""`) |
-| `LottieSuggestion` | string | Visual motif description (defaults to `""`) |
-| `lottieURL` | string | Firebase Storage URL (defaults to `""`, populated by Design Agent) |
-
-#### Shape B: `v2_interactive` (5-Question Drill-Down)
-
-Used when `lessonFormat` = `"v2_interactive"`. Each lesson produces exactly 5 screen documents. Each document represents one question with a feedback banner and an embedded Learn More drill-down. The entire question screen must fit on one mobile viewport (no scrolling); the Learn More page is the only scrollable surface.
+Each lesson produces exactly 5 screen documents. Each document represents one question with a feedback banner and an embedded Learn More drill-down. The entire question screen must fit on one mobile viewport (no scrolling); the Learn More page is the only scrollable surface.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -319,22 +284,16 @@ The Apply to My Money card always ends with the disclaimer: "Based on general UK
 
 ### Collection: `lesson_requests`
 
-The trigger collection that initiates the Maker-Checker pipeline. **Both formats always run**; the optional `lessonFormat` field on the created document (if present) is ignored for routing -- each run forces `v1_swipe` or `v2_interactive` internally.
+The trigger collection that initiates the Maker-Checker pipeline.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| *(user-submitted fields)* | various | `category`, `moduleName`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `userLessonRequest`, `userID` (plus legacy `lessonFormat` if the app still sends it -- not used to choose single-format generation) |
-| `status` | string | `"completed"` (both formats PASS), `"partial"` (exactly one PASS), `"failed_compliance"` (neither PASS), or `"error"` (unrecoverable JS error) |
-| `v1_lessonId` | string \| null | Auto ID of the v1 `user_lessons` document if v1 passed; otherwise `null` |
-| `v2_lessonId` | string \| null | Auto ID of the v2 `user_lessons` document if v2 passed; otherwise `null` |
-| `v1_status` | string | `"PASS"` or `"FAIL"` for the v1 run |
-| `v2_status` | string | `"PASS"` or `"FAIL"` for the v2 run |
-| `attempts_v1` | number | Attempt count used before v1 resolved |
-| `attempts_v2` | number | Attempt count used before v2 resolved |
+| *(user-submitted fields)* | various | `category`, `moduleName`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `userLessonRequest`, `userID` |
+| `status` | string | `"completed"` (PASS), `"failed_compliance"` (all attempts exhausted), or `"error"` (unrecoverable JS error) |
+| `lessonId` | string \| null | Auto ID of the `user_lessons` document if the run passed; otherwise `null` |
+| `attempts` | number | Attempt count used before the run resolved |
 | `error_message` | string | Set on unrecoverable error: JS error message |
 | `updatedAt` | Timestamp | `FieldValue.serverTimestamp()` |
-
-**Deprecated / legacy fields** (may still exist on old documents): `lessonId`, `attempts`, `compliance_summary`, `lastComplianceReason` -- replaced by the dual-outcome fields above for new requests.
 
 ### Collection: `lesson_history`
 
@@ -377,7 +336,6 @@ Audit trail for all agent failures and Maker-Checker loop iterations.
 | `attemptNumber` | number | Which attempt produced this failure |
 | `lessonDraft` | object | `{ lessonMetadata: {}, screens: [] }` -- the full draft that failed |
 | `reasoning` | string | Compliance Agent's FAIL reasoning |
-| `lessonFormat` | string | `"v1_swipe"` or `"v2_interactive"` -- which run produced this log |
 | `createdAt` | Timestamp | `FieldValue.serverTimestamp()` |
 | `agent` | string | `"maker_checker_product_engine"` |
 
@@ -389,7 +347,6 @@ Audit trail for all agent failures and Maker-Checker loop iterations.
 | `status` | string | `"failed_compliance"` |
 | `totalAttempts` | number | Always `3` (MAX_ATTEMPTS reached) |
 | `lastComplianceReason` | string | Final FAIL reasoning from attempt 3 |
-| `lessonFormat` | string | Which format run failed |
 | `createdAt` | Timestamp | `FieldValue.serverTimestamp()` |
 | `agent` | string | `"maker_checker_product_engine"` |
 
@@ -409,19 +366,19 @@ Audit trail for all agent failures and Maker-Checker loop iterations.
 
 ### AI-generated lessons (`commitPassBatch()`)
 
-Each successful format run uses one Firestore `batch` to atomically write:
+A successful run uses one Firestore `batch` to atomically write:
 
 1. **One `user_lessons` document** -- auto-generated ID
-2. **N `screens` documents** -- one per screen/question, each with `lessonType: "user"`, `lessonFormat`, and `lessonId` linking to the parent
+2. **N `screens` documents** -- one per question, each with `lessonType: "user"`, `lessonFormat: "v2_interactive"`, and `lessonId` linking to the parent
 
-The `lesson_requests` document is **not** updated inside this batch; it is updated **once** after both format runs complete (see `lesson_requests` schema above).
+The `lesson_requests` document is **not** updated inside this batch; it is updated after the run completes (see `lesson_requests` schema above).
 
 ### Core lessons (`sync_curriculum.js`)
 
 Uses a Firestore batch per **file**:
 
-1. **One `core_lessons` document** -- keyed by lesson slug (`lisa-penalty-rules`) or `{slug}--v2` for `.v2.md` files
-2. **N `screens` documents** -- one per `## Screen` (v1) or `## Question` (v2), each with `lessonType: "core"`, `lessonFormat`, and `lessonId` linking to the parent
+1. **One `core_lessons` document** -- keyed by lesson slug (e.g. `lisa-penalty-rules`)
+2. **N `screens` documents** -- one per `## Question`, each with `lessonType: "core"`, `lessonFormat: "v2_interactive"`, and `lessonId` linking to the parent
 
 ---
 

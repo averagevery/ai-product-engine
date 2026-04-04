@@ -27,8 +27,7 @@ These word limits are hard ceilings enforced across all generated educational co
 |---------|-----------|
 | Headlines | 7 |
 | Body text | 25 |
-| Feedback banners (v2_interactive) | 30 |
-| Feedback screens (v1_swipe) | 15 |
+| Feedback banners | 30 |
 
 ## Lottie Animation Constraints
 

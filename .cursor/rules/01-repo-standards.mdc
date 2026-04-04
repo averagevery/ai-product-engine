@@ -14,22 +14,20 @@ Any change that moves, renames, or redefines **folders**, **scripts**, **rules**
 
 ## Directory Structure
 
-- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` (YAML frontmatter: `programmeName`, `category`, `persona`, `lessons` array with `slug` + `order`) + paired lesson files (`{slug}.md` for v1_swipe and `{slug}.v2.md` for v2_interactive). Synced to Firestore `programmes` + `core_lessons` (with `lessonOrder`) via `npm run sync-curriculum`.
+- `requirements/content/programmes/` -- Hand-crafted curriculum. Each programme is a folder with `programme.md` (YAML frontmatter: `programmeName`, `category`, `persona`, `lessons` array with `slug` + `order`) + lesson files (`{slug}.md` in v2_interactive format). Synced to Firestore `programmes` + `core_lessons` (with `lessonOrder`) via `npm run sync-curriculum`.
 - `requirements/features/` -- App UX/UI feature specifications.
-- `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes AI-generated lessons to `user_lessons`.
+- `functions/src/` -- All backend execution logic (Cloud Functions). Maker-Checker loop writes a single v2_interactive AI-generated lesson to `user_lessons`.
 - `functions/prompts/` -- Agent prompt definitions (one file per agent).
 - `functions/docs/` -- Single source of truth for agent behavioural rules. Editing a file here directly changes agent runtime behaviour.
-- `scripts/` -- Utility scripts. `sync_curriculum.js` syncs curriculum markdown to Firestore. Run via `npm run sync-curriculum`. `check_reference_docs.js` is run via `npm run verify-reference-docs` (living reference path check; see `05-update-docs.mdc`).
+- `scripts/` -- Utility scripts. `sync_curriculum.js` syncs curriculum markdown (`{slug}.md` lesson files) to Firestore. Run via `npm run sync-curriculum`. `check_reference_docs.js` is run via `npm run verify-reference-docs` (living reference path check; see `05-update-docs.mdc`).
 - `knowledge/` -- Modular knowledge base files consumed by Cursor AI.
 - `templates/` -- Fill-in-the-blank document templates.
 - `docs/` -- Project-level documentation including `vision-and-product.md` and `CONTRIBUTING.md`.
 - `reference_docs/` -- Historical reference material (read-only archive, excluded from AI context via `.cursorignore`).
 
-## Lesson Format Routing
+## Lesson Format
 
-The platform supports two lesson formats (`lessonFormat` on each lesson and screen document). **Both** are produced for every core sync pair and every user generation request; the app or experiments choose which variant to present. For AI-generated lessons, the Maker-Checker runs **both formats in parallel** (`v2_interactive` primary, `v1_swipe` fallback) so one run cannot block the other.
-- **v1_swipe** -- 8-11 screen linear flow. Agent rules: `functions/docs/lesson_guidelines.md`.
-- **v2_interactive** -- 5-question drill-down with feedback banners and nested Learn More lightboxes. Agent rules: `functions/docs/lesson_guidelines_v2.md`.
+The platform uses a single lesson format: **v2_interactive** (`lessonFormat: "v2_interactive"` on each lesson and screen document). This is a 5-question drill-down with feedback banners and nested Learn More lightboxes. Agent rules: `functions/docs/lesson_guidelines.md`.
 
 ## The 9-Agent Maker-Checker Philosophy
 

@@ -16,7 +16,7 @@
 * **Action:**
   1. **Goal view** -- shows the programmes linked to this goal, ordered by recommendation relevance (see Programme Recommendations feature). Each programme card shows: name, brief description, number of lessons, estimated total time, and a progress indicator if the user has started it.
   2. **Programme view** -- user taps a programme to see its lessons listed in order. Each lesson card shows: name, difficulty level, estimated time, and completion status (not started / in progress / completed). Lessons are unlocked sequentially -- the next lesson becomes available when the previous one is completed.
-  3. **Lesson view** -- user taps a lesson to begin. Screens are presented one at a time (swipe or tap to advance). Standard screens show headline + paragraph + Lottie animation. Question screens present a multiple-choice quiz. Summary screens show key takeaways.
+  3. **Lesson view** -- user taps a lesson to begin. The user answers 5 questions, receives immediate feedback, and optionally drills into a rich Learn More page for each question.
   4. **Lesson completion** -- after the final screen, show a completion state with key takeaways. Save progress to `lesson_history`. Return user to the programme view with the completed lesson marked and the next lesson unlocked.
 * **Exit:** User returns to the programme view (lesson complete) or dashboard (back navigation at any point). Partial progress is saved -- if the user leaves mid-lesson, they resume from the last viewed screen on return.
 
@@ -28,11 +28,11 @@ AI agents generating code or content for this feature MUST read the following do
 |----------|------|-----------|
 | Design System | `.cursor/rules/03-design-system.mdc` | Colours, typography, word limits, Lottie constraints |
 | FCA Regulations | `knowledge/fca-regulations.md` | All lesson content must be educational, never advisory |
-| Lesson Guidelines | `functions/docs/lesson_guidelines.md` | Screen flow, word limits, screen types (Standard/Question/Summary) |
+| Lesson Guidelines | `functions/docs/lesson_guidelines.md` | Question flow, word limits, Learn More structure |
 | Financial Standards | `functions/docs/financial_standards.md` | PISA pillars and topic boundaries |
 | Core System Architecture | `requirements/features/core-system-architecture.md` | Maker-Checker pipeline that generates lesson content |
 
-**Prohibitions (quick reference):** NEVER use the `$` symbol, red alert text, complex background gradients, or brand logos in any screen. NEVER exceed word limits (headlines 7, body 25, feedback 15).
+**Prohibitions (quick reference):** NEVER use the `$` symbol, red alert text, complex background gradients, or brand logos in any screen. NEVER exceed word limits (headlines 7, body 25, feedback 30).
 
 ## 4. System Architecture
 
@@ -41,14 +41,14 @@ AI agents generating code or content for this feature MUST read the following do
 ```
 Goal (1) ──► Programme (many)
 Programme (1) ──► Lesson (many)
-Lesson (1) ──► Screen (many, 8-11)
+Lesson (1) ──► Screen (many, 5)
 ```
 
 ### Involved AI Agents
 
 | Agent | Role in This Feature | Trigger |
 |-------|---------------------|---------|
-| Creator Agent | Generates lesson content as structured JSON (8-11 screens per lesson) | New `lesson_request` document created in Firestore |
+| Creator Agent | Generates lesson content as structured JSON (5 question screens per lesson) | New `lesson_request` document created in Firestore |
 | Compliance Agent | Validates every lesson draft against FCA Consumer Duty rules | Called by the Maker-Checker loop after each Creator draft |
 | Telemetry Agent | Tracks quiz fail rates, drop-off screens, thumbs up/down signals, and lesson completion rates | Lesson completion or abandonment event written to `lesson_history` |
 
@@ -60,7 +60,7 @@ Lesson (1) ──► Screen (many, 8-11)
 | `programmes` | READ | `programmeId`, `goalId`, `name`, `description`, `lessonCount`, `estimatedTime`, `difficulty`, `order` |
 | `core_lessons` | READ | `lessonId`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `lessonFormat`, `screenCount`, `syncedAt` |
 | `user_lessons` | READ | `lessonId`, `programmeId`, `lessonName`, `lessonLevel`, `lessonTime`, `learningStyle`, `lessonFormat`, `goal`, `goalOrder`, `compliance_audit`, `human_approved`, `version`, `created_at` |
-| `screens` | READ | Shape depends on parent lesson's `lessonFormat`. v1_swipe: `lessonId`, `screenNumber`, `screenType`, `headline`, `paragraph`, `question`, `optionA`-`optionD`, `questionAnswer`, `feedbackCorrect`, `feedbackIncorrect`, `keyTakeaway1`-`keyTakeaway3`, `LottieSuggestion`, `lottieURL`. v2_interactive: `lessonId`, `screenNumber`, `questionText`, `emoji`, `options`, `correctIndex`, `feedbackCorrect`, `feedbackIncorrect`, `learnMore`. Full schema in `core-system-architecture.md`. |
+| `screens` | READ | `lessonId`, `screenNumber`, `questionText`, `emoji`, `options`, `correctIndex`, `feedbackCorrect`, `feedbackIncorrect`, `learnMore`. Full schema in `core-system-architecture.md`. |
 | `lesson_history` | WRITE | `lessonId`, `userId`, `completedAt`, `screenProgress` (array of screen IDs viewed in order), `quizResults` (array of `{ questionIndex, selectedAnswer, correct }`), `thumbsUp` (boolean), `dropOffScreen` (number or null) |
 | `users` | READ | `goals` (array -- from onboarding), `confidenceLevel` |
 
@@ -77,7 +77,7 @@ FCA-specific rules that apply to this feature:
 
 * **Data Failure:** If the Firestore read for goals, programmes, or lessons fails, show a skeleton loading state with a retry option. Do not show error codes or technical messages.
 * **Compliance Failure:** If a lesson's `compliance_audit` is missing or has `status: "FAIL"`, do not render the lesson. Show a placeholder: "This lesson is being reviewed. Check back soon." Log the issue for the content team.
-* **Agent Failure:** If **both** formats fail (`failed_compliance` or `error` on `lesson_requests`), the lesson does not appear. If status is `partial`, show the passing variant only (use `v1_lessonId` or `v2_lessonId` whichever is non-null, per product rules). The user should never see a lesson document that lacks a PASS `compliance_audit`.
+* **Agent Failure:** If the run fails (`failed_compliance` or `error` on `lesson_requests`), the lesson does not appear. The user should never see a lesson document that lacks a PASS `compliance_audit`.
 * **Empty Programme:** If a programme has zero completed lessons (all still in generation or failed), show a "Coming soon" state on the programme card rather than an empty list.
 * **Partial Progress Loss:** If `lesson_history` write fails on lesson completion, retry silently. If retry fails, save locally and sync on next app launch. Never show the user an error for a telemetry write failure.
 
@@ -85,7 +85,7 @@ FCA-specific rules that apply to this feature:
 
 | File | Purpose |
 |------|---------|
-| `functions/src/maker_checker_loop.js` | Core pipeline: two Maker-Checker runs per request in parallel (v2 primary + v1 fallback), then updates `lesson_requests` |
+| `functions/src/maker_checker_loop.js` | Core pipeline: single Maker-Checker run per request (v2_interactive), then updates `lesson_requests` |
 | `functions/prompts/creator_agent.js` | Prompt builder for the Creator Agent |
 | `functions/prompts/compliance_agent.js` | Prompt builder for the Compliance Agent |
 | Goal/programme navigation and UI | Not yet built |

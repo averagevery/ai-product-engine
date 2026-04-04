@@ -12,14 +12,13 @@ Trigger this rule via @-mention when specifying a lesson for the Mulo platform. 
 
 ### Option A: Editorial Brief (for AI-generated `user_lessons`)
 
-Creates an **editorial brief** -- the input that describes what the lesson should teach. The Maker-Checker pipeline then runs **twice** (v1_swipe and v2_interactive), writing up to two `user_lessons` documents and two sets of `screens` in Firestore for the same request.
+Creates an **editorial brief** -- the input that describes what the lesson should teach. The Maker-Checker pipeline runs once, writing a single `user_lessons` document and its `screens` in Firestore (v2_interactive format).
 
 ### Option B: Core Lesson (for hand-crafted `core_lessons`)
 
-Creates **two** complete lesson files -- one in each format -- and saves both to the same programme folder. Both are synced to Firestore `core_lessons` + `screens` via `npm run sync-curriculum`.
+Creates a complete lesson file in v2_interactive format and saves it to the programme folder. Synced to Firestore `core_lessons` + `screens` via `npm run sync-curriculum`.
 
-- **`{slug}.md`** -- v1_swipe format using `## Screen N: Type` headings (8-11 screens).
-- **`{slug}.v2.md`** -- v2_interactive format using `## Question N:` headings (exactly 5 questions with nested `learnMore`).
+- **`{slug}.md`** -- v2_interactive format using `## Question N:` headings (exactly 5 questions with nested `learnMore`).
 
 Ask the user which type they need if unclear.
 
@@ -28,37 +27,25 @@ Ask the user which type they need if unclear.
 1. Read and use `templates/template-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
 2. Read `knowledge/personas.md` for the target persona context.
 3. Read `functions/docs/financial_standards.md` for the PISA financial pillars and topic boundaries.
-4. Read `functions/docs/lesson_guidelines.md` for v1 screen flow (the live pipeline also runs a second pass using `lesson_guidelines_v2.md` for the same request).
+4. Read `functions/docs/lesson_guidelines.md` for v2_interactive structure rules and word limits.
 5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons` and `screens` collections).
 6. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
 
 ## Instructions -- Core Lesson (Option B)
 
-**You must always generate BOTH files.** They share identical metadata (`lessonName`, `category`, `programmeId`, `lessonLevel`, `lessonTime`, `persona`) but differ in format, screen count, and screen structure.
-
-### Step 1: Generate the v1 file (`{slug}.md`)
-
 1. Read and use `templates/template-core-lesson.md` as the document skeleton. Fill in every bracketed placeholder.
 2. Read `knowledge/personas.md` for the target persona context.
 3. Read `functions/docs/financial_standards.md` for the PISA financial pillars.
-4. Read `functions/docs/lesson_guidelines.md` for v1 screen flow and word limits.
-5. Each `## Screen N: Type` heading becomes a separate Firestore `screens` document with `lessonType: "core"`.
-6. Save as `{slug}.md` inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
-
-### Step 2: Generate the v2 file (`{slug}.v2.md`)
-
-1. Read and use `templates/template-core-lesson-v2.md` as the document skeleton. Fill in every bracketed placeholder.
-2. Read `functions/docs/lesson_guidelines_v2.md` for v2 structure rules and word limits.
-3. Each `## Question N:` heading becomes a separate Firestore `screens` document with `lessonType: "core"`, `lessonFormat: "v2_interactive"`, and a nested `learnMore` map.
-4. The lesson must contain exactly 5 questions. Each question must challenge a different misconception. Each question must have **exactly one** clearly correct option (see `lesson_guidelines_v2.md` -- avoid two "False —" / "No —" answers to the same stem). The `correctIndex` must vary across questions.
-5. Save as `{slug}.v2.md` in the **same** programme folder as the v1 file.
+4. Read `functions/docs/lesson_guidelines.md` for v2_interactive structure rules and word limits.
+5. Each `## Question N:` heading becomes a separate Firestore `screens` document with `lessonType: "core"`, `lessonFormat: "v2_interactive"`, and a nested `learnMore` map.
+6. The lesson must contain exactly 5 questions. Each question must challenge a different misconception. Each question must have **exactly one** clearly correct option (see `lesson_guidelines.md` -- avoid two "False —" / "No —" answers to the same stem). The `correctIndex` must vary across questions.
+7. Save as `{slug}.md` inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
 
 ## Naming Convention
 
-Use a kebab-case slug. Both files sit alongside `programme.md` in the programme folder:
+Use a kebab-case slug. The lesson file sits alongside `programme.md` in the programme folder:
 
-- **v1:** `{lesson-topic}.md` (e.g., `lisa-penalty-rules.md`)
-- **v2:** `{lesson-topic}.v2.md` (e.g., `lisa-penalty-rules.v2.md`)
+- `{lesson-topic}.md` (e.g., `lisa-penalty-rules.md`)
 
 ## AI Source Prompt
 
@@ -68,14 +55,7 @@ Every generated document must retain the AI Source Prompt block at the top of th
 
 All content must comply with the design system (`.cursor/rules/03-design-system.mdc`):
 
-### v1_swipe limits
-
-- Headlines: max 7 words
-- Body text: max 25 words
-- Feedback text: max 15 words
-- Lottie motifs: only approved motifs (bank building, piggy bank, shield, coins, graduation cap, growth chart)
-
-### v2_interactive limits (see `functions/docs/lesson_guidelines_v2.md`)
+### Word limits (see `functions/docs/lesson_guidelines.md`)
 
 - Question text: max 20 words
 - Option text: max 10 words each
@@ -85,10 +65,7 @@ All content must comply with the design system (`.cursor/rules/03-design-system.
 - Quick summary: exactly 2 sentences
 - Story slide text: max 30 words per slide
 - Takeaways: 3 items, each 1 sentence
-- No Lottie animations in v2
-
-### Both formats
-
+- No Lottie animations
 - Banned: `$` symbol, red effects, currency iconography
 
 ## Compliance

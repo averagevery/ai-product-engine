@@ -18,21 +18,21 @@ The repository is organised into four key zones, each with a clear purpose.
 Cursor Monorepo (GitOps)
     │
     ├── npm run sync-curriculum ──► Firestore: programmes + core_lessons + screens
-    │                                (v1 + v2 per lesson; hand-crafted, read-only in app)
+    │                                (hand-crafted, read-only in app)
     │
     └── firebase deploy ──► Cloud Functions ──► Firestore: user_lessons + screens
-                              (Maker-Checker: v2 + v1 in parallel per request; read/write in app)
+                              (Maker-Checker: v2_interactive; read/write in app)
                                         │
                                         ▼
                               FlutterFlow App (reads both)
 ```
 
-Two lesson paths feed the same `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`). Both paths always produce **two** lessons -- one `v1_swipe` and one `v2_interactive` -- with the same name and metadata but different screen shapes:
+Two lesson paths feed the same `screens` collection, distinguished by `lessonType` (`"core"` or `"user"`):
 
 | Path | Collection | Source |
 |------|-----------|--------|
-| Hand-crafted curriculum | `core_lessons` | Written in Cursor as paired markdown files (`{slug}.md` + `{slug}.v2.md`), synced via `npm run sync-curriculum` |
-| AI-generated lessons | `user_lessons` | Maker-Checker runs **both formats in parallel** (v2 primary, v1 fallback); one run cannot block the other |
+| Hand-crafted curriculum | `core_lessons` | Written in Cursor as markdown files (`{slug}.md`), synced via `npm run sync-curriculum` |
+| AI-generated lessons | `user_lessons` | Maker-Checker pipeline generates a single `v2_interactive` lesson per request |
 
 ### `requirements/` -- The Source of Truth for Product Specs
 
@@ -57,7 +57,7 @@ Manually curated knowledge files that ground every AI interaction in real-world 
 | `knowledge/day2-open-banking.md` | Open Banking data principles, signal categories, agent architecture |
 | `knowledge/llms.txt` | Machine-readable project summary (AI agents read this first) |
 | `docs/vision-and-product.md` | Product vision, mission, and the 3-layer architecture |
-| `docs/partner-curriculum-sync.md` | PR merge to `main` → GitHub Action syncs programmes to Firestore |
+| `docs/partner-guide.md` | Partner how-to: lessons, requirements, agent docs; PR → `main` → Action syncs programmes to Firestore |
 
 ### `functions/` -- The 9-Agent Maker-Checker Engine
 
@@ -83,7 +83,7 @@ Cursor rules govern how AI behaves in this repository. Five rules are always on,
 | `04-folder-integrity.mdc` | Always on | Prevents files in wrong directories |
 | `05-update-docs.mdc` | Always on | Doc sync protocol: living reference registry, change-to-doc matrix, mandatory closing verification (see rule file) |
 | `create-programme.mdc` | @-mention | Creates programme folders in `requirements/content/programmes/` |
-| `create-lesson.mdc` | @-mention | Drafts lesson briefs or **paired** core lessons (`{slug}.md` + `{slug}.v2.md`) inside programme folders |
+| `create-lesson.mdc` | @-mention | Drafts lesson briefs or core lessons (`{slug}.md`) inside programme folders |
 | `create-feature.mdc` | @-mention | Drafts feature specs to `requirements/features/` |
 | `create-agent.mdc` | @-mention | Creates or updates agent rules in `functions/docs/` |
 | `create-blueprint.mdc` | @-mention | Maps user journeys as service blueprints to `docs/` |
@@ -97,7 +97,7 @@ GitHub Copilot mirrors live in `.github/skills/` with matching `SKILL.md` files.
 
 You do not need to write code to contribute product specs. The AI does the heavy lifting.
 
-**For the Partner:**
+**For the Partner:** Step-by-step setup, npm vs optional, lesson prompts, PR flow, and curriculum sync are in **[docs/partner-guide.md](docs/partner-guide.md)**.
 
 1. Open **Cursor Composer** (Cmd/Ctrl + I).
 2. Type `@` to mention a skill, then describe what you need:
@@ -154,8 +154,7 @@ These rules are enforced by `.cursor/rules/03-design-system.mdc` and `.cursor/ru
 |---------|---------|
 | Headlines | 7 words |
 | Body text | 25 words |
-| Feedback banners (v2_interactive) | 30 words |
-| Feedback screens (v1_swipe) | 15 words |
+| Feedback banners | 30 words |
 
 ### Lottie Animations
 
@@ -223,9 +222,9 @@ Before merging structural or doc-touching work, confirm living reference files s
 npm run verify-reference-docs
 ```
 
-**Firestore sync (curriculum):** Default path is **GitHub Actions** — secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow runs on push to `main` when `requirements/content/programmes/**` changes (including PR merges). See **`docs/partner-curriculum-sync.md`**. For optional local runs: `.secrets/firebase-adminsdk.json` or `GOOGLE_APPLICATION_CREDENTIALS`; project ID from `.firebaserc`. Full detail: `scripts/README.md`.
+**Firestore sync (curriculum):** Default path is **GitHub Actions** — secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow runs on push to `main` when `requirements/content/programmes/**` changes (including PR merges). See **`docs/partner-guide.md`**. For optional local runs: `.secrets/firebase-adminsdk.json` or `GOOGLE_APPLICATION_CREDENTIALS`; project ID from `.firebaserc`. Full detail: `scripts/README.md`.
 
-Example paired lessons (v1 + v2 markdown): `requirements/content/programmes/buying-your-first-home/first-home-deposits-explained.md` (+ `.v2.md`) and `how-to-start-building-a-deposit.md` (+ `.v2.md`).
+Example core lessons: `requirements/content/programmes/buying-your-first-home/first-home-deposits-explained.md` and `how-to-start-building-a-deposit.md`.
 
 ### Project Configuration
 
@@ -251,7 +250,7 @@ mulo-ai-backend/
 │       └── verify-reference-docs.yml # PR/push: living reference files exist (see 05-update-docs.mdc)
 ├── docs/
 │   ├── CONTRIBUTING.md           # Branch / fork / PR workflow for collaborators
-│   ├── partner-curriculum-sync.md # PR to main → Action syncs programmes to Firestore
+│   ├── partner-guide.md          # Partner how-to + PR → main → curriculum sync to Firestore
 │   └── vision-and-product.md     # Product vision, 3-layer model, app structure
 ├── functions/                    # Backend engine + agent rules
 │   ├── docs/                     # Agent behavioural rules (single source of truth)
@@ -260,8 +259,7 @@ mulo-ai-backend/
 │   │   ├── day2_open_banking_agent.md
 │   │   ├── design_guidelines.md
 │   │   ├── financial_standards.md
-│   │   ├── lesson_guidelines.md      # V1 swipe format rules
-│   │   ├── lesson_guidelines_v2.md   # V2 interactive format rules
+│   │   ├── lesson_guidelines.md      # Interactive format rules (v2_interactive)
 │   │   └── telemetry_rules.md
 │   ├── prompts/                  # Agent prompt definitions
 │   └── src/                      # Backend execution logic
@@ -285,7 +283,7 @@ mulo-ai-backend/
 │       ├── growth-tab.md
 │       ├── home-screen.md
 │       ├── learning-journey.md
-│       ├── lesson-format-v2.md
+│       ├── lesson-format.md
 │       ├── notifications-nudges.md
 │       ├── profile-tab.md
 │       ├── programme-recommendations.md
@@ -296,8 +294,7 @@ mulo-ai-backend/
 │   └── sync_curriculum.js        # Syncs core lessons to Firestore
 ├── templates/                    # Fill-in-the-blank document templates
 │   ├── template-agent.md         # Agent behavioural rule document template
-│   ├── template-core-lesson.md   # V1 swipe core lesson template
-│   ├── template-core-lesson-v2.md # V2 interactive core lesson template
+│   ├── template-core-lesson.md   # Core lesson template (v2_interactive)
 │   ├── template-feature.md
 │   ├── template-lesson.md
 │   ├── template-programme.md
