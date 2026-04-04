@@ -28,7 +28,9 @@ const creatorModel = genAI.getGenerativeModel({ model: CREATOR_MODEL_NAME });
 const complianceModel = genAI.getGenerativeModel({ model: COMPLIANCE_MODEL_NAME });
 
 const MAX_ATTEMPTS = 3;
-const BOTH_FORMATS = ["v1_swipe", "v2_interactive"];
+// v2_interactive is listed first -- it is the primary format. Both always run
+// in parallel so an error in v1 can never prevent v2 from completing.
+const BOTH_FORMATS = ["v2_interactive", "v1_swipe"];
 
 /**
  * Run the Maker-Checker loop for a single format.
@@ -119,9 +121,10 @@ async function runSingleFormat(data, requestId, ownerID, lessonFormat, complianc
 }
 
 /**
- * Core Maker-Checker loop -- always generates BOTH v1_swipe and v2_interactive.
- * Each format runs its own independent pipeline. If one passes and the other
- * fails, the passing one is still written.
+ * Core Maker-Checker loop -- always generates BOTH v2_interactive (primary)
+ * and v1_swipe. Both run in parallel via Promise.allSettled so a JS error or
+ * compliance failure in one format can NEVER block the other from completing.
+ * v2_interactive is the priority format; v1_swipe is the fallback.
  */
 async function runMakerChecker(snap, context) {
   const data = snap.data() || {};
@@ -130,18 +133,25 @@ async function runMakerChecker(snap, context) {
 
   const complianceRules = await loadComplianceRules();
 
-  const results = {};
-  for (const format of BOTH_FORMATS) {
-    results[format] = await runSingleFormat(
-      data, requestId, ownerID, format, complianceRules,
-    );
-  }
+  // Run both formats fully in parallel. allSettled guarantees both always
+  // attempt even if one throws an unhandled error.
+  const [v2Result, v1Result] = await Promise.allSettled([
+    runSingleFormat(data, requestId, ownerID, "v2_interactive", complianceRules),
+    runSingleFormat(data, requestId, ownerID, "v1_swipe", complianceRules),
+  ]);
 
-  const v1 = results.v1_swipe;
-  const v2 = results.v2_interactive;
+  // Unwrap settled results. A "rejected" settlement means an unexpected JS
+  // error (not a compliance FAIL) -- treat that format as FAIL with 0 attempts.
+  const v2 = v2Result.status === "fulfilled"
+    ? v2Result.value
+    : {lessonId: null, attempts: 0, status: "FAIL", reasoning: v2Result.reason?.message || "Unhandled error"};
 
-  const bothPassed = v1.status === "PASS" && v2.status === "PASS";
-  const anyPassed = v1.status === "PASS" || v2.status === "PASS";
+  const v1 = v1Result.status === "fulfilled"
+    ? v1Result.value
+    : {lessonId: null, attempts: 0, status: "FAIL", reasoning: v1Result.reason?.message || "Unhandled error"};
+
+  const bothPassed = v2.status === "PASS" && v1.status === "PASS";
+  const anyPassed  = v2.status === "PASS" || v1.status === "PASS";
 
   let overallStatus;
   if (bothPassed) {
@@ -154,12 +164,12 @@ async function runMakerChecker(snap, context) {
 
   await db.collection("lesson_requests").doc(requestId).update({
     status: overallStatus,
-    v1_lessonId: v1.lessonId || null,
-    v1_status: v1.status,
-    attempts_v1: v1.attempts,
     v2_lessonId: v2.lessonId || null,
     v2_status: v2.status,
     attempts_v2: v2.attempts,
+    v1_lessonId: v1.lessonId || null,
+    v1_status: v1.status,
+    attempts_v1: v1.attempts,
     updatedAt: FieldValue.serverTimestamp(),
   });
 }

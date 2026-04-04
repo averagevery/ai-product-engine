@@ -186,16 +186,14 @@ REQUIRED OUTPUT SHAPE (STRICT -- v2_interactive):
           { "emoji": string, "title": string, "text": string }
         ],
         "breakdownCards": [
-          { "type": "comparison" | "highlight" | "timeline", "title": string, "content": string }
+          // Exactly 2 cards; each card MUST use a different type. Include "caption" on every card.
+          // comparison type: { "type": "comparison", "caption": string, "leftLabel": string, "leftItems": [string, string, string], "rightLabel": string, "rightItems": [string, string, string] }
+          // highlight type:  { "type": "highlight",  "caption": string, "heroNumber": string, "subtitle": string, "detail": string }
+          // timeline type:   { "type": "timeline",   "caption": string, "steps": [{ "step": 1, "description": string }, { "step": 2, "description": string }, { "step": 3, "description": string }] }
         ],
         "takeaways": [string, string, string],
-        "applyToMyMoney": {
-          "headline": string,
-          "inputLabels": [string],
-          "resultTemplate": string,
-          "disclaimer": string
-        },
-        "actionLink": { "label": string, "url": string, "source": string }
+        "applyToMyMoney": null,
+        "actionLink": { "label": string, "description": string, "url": string } | null
       }
     }
   ]
@@ -204,10 +202,12 @@ REQUIRED OUTPUT SHAPE (STRICT -- v2_interactive):
 SCREENS:
 - Produce exactly 5 question screens, following the structure from lesson_guidelines_v2.md.
 - Each screen MUST include questionText, emoji, options (4), correctIndex, feedbackCorrect, feedbackIncorrect, and a full learnMore object.
-- storyCarousel must have exactly 5 slides; breakdownCards must have exactly 2 cards.
+- storyCarousel must have exactly 5 slides; breakdownCards must have exactly 2 cards using different types.
+- Every breakdownCard MUST have a "caption" field (one explanatory sentence) PLUS its type-specific fields.
 - takeaways must have exactly 3 actionable strings with specific numbers.
-- applyToMyMoney is optional (set to null if not applicable).
-- actionLink is optional (set to null if no approved external tool applies).
+- Set applyToMyMoney to null (Day 1 MVP -- omit this section entirely).
+- actionLink is optional -- set to null if no approved external tool applies. When included, use "description" (not "source").
+- Approved actionLink sources only: MoneyHelper, Gov.uk, ClearScore, Credit Karma, HMRC, Turn2us, NHS.
 - Respect all hard word/character limits from lesson_guidelines_v2.md.
 - Ensure the content is strictly educational and does NOT give personalised financial advice.`;
 }
