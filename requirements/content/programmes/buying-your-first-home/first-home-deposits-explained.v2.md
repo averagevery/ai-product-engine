@@ -8,7 +8,7 @@
 
 ---
 category: Mortgage
-programmeId: first-home-foundations
+programmeId: buying-your-first-home
 lessonName: First Home Deposits Explained
 lessonLevel: Beginner
 lessonTime: 2 mins

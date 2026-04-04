@@ -25,6 +25,7 @@ screenCount: 5
 - 1) [Option -- max 10 words]
 - 2) [Option -- max 10 words]
 - 3) [Option -- max 10 words]
+<!-- Exactly one option must be fully correct. Avoid two answers with the same verdict (e.g. two "False —" lines on one statement). Prefer a direct question if a T/F stem would duplicate correct-looking options. -->
 **correctIndex:** [0, 1, 2, or 3]
 **feedbackCorrect:** [Max 30 words -- affirm, then add one extra insight]
 **feedbackIncorrect:** [Max 30 words -- never condescending, reframe the correct answer]

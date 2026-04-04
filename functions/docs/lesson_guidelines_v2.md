@@ -45,6 +45,7 @@ The Creator Agent must output the following fields per question:
 * The entire screen must fit on one mobile viewport -- no scrolling.
 * Each question must challenge a common misconception, not test textbook knowledge.
 * All 4 options must be plausible to someone who doesn't know the answer -- no joke answers.
+* **Exactly one correct answer.** Only one option may be fully correct. Do not write two options that both look right (for example: two answers that both start with "False —" or "No —" to the same statement, or two variants of the same verdict). Prefer a **direct question** ("What is the best first step...?") over a true/false stem that forces multiple "false" wordings. Wrong options should be clearly weaker or factually wrong, not alternate good advice.
 * The correct answer position (`correctIndex`) must vary across the 5 questions.
 
 ## 5. Screen 2: The Feedback Banner
@@ -166,7 +167,7 @@ Before generating a v2_interactive lesson, the Creator Agent must verify:
 
 1. What are the 5 learning objectives? (one per question)
 2. What misconception does each question challenge?
-3. What is the correct answer and why are the others wrong?
+3. What is the single correct answer, and why is each other option clearly wrong (not merely a second good answer)?
 4. Who is the named UK character for each real-world example?
 5. What are the 3 topic-specific numbers for each Apply to My Money section? (Day 2 only)
 6. Is there a relevant government/trusted tool for each question?
@@ -176,6 +177,7 @@ Before generating a v2_interactive lesson, the Creator Agent must verify:
 The Compliance Agent must verify all of the following before returning PASS:
 
 * All 5 questions challenge misconceptions (not trivia).
+* Each question has exactly one clearly correct option -- no ambiguous pairs sharing the same verdict.
 * Correct answer position varies across questions.
 * All options are plausible to a beginner.
 * Feedback is under 30 words, never condescending.

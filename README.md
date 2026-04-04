@@ -81,7 +81,7 @@ Cursor rules govern how AI behaves in this repository. Five rules are always on,
 | `02-use-knowledge.mdc` | Always on | Knowledge routing, FCA compliance mandate |
 | `03-design-system.mdc` | Always on | Colours, typography, word limits, Lottie constraints |
 | `04-folder-integrity.mdc` | Always on | Prevents files in wrong directories |
-| `05-update-docs.mdc` | Always on | Keeps `README.md`, `llms.txt`, and folder rules in sync as part of every task |
+| `05-update-docs.mdc` | Always on | Doc sync protocol: living reference registry, change-to-doc matrix, mandatory closing verification (see rule file) |
 | `create-programme.mdc` | @-mention | Creates programme folders in `requirements/content/programmes/` |
 | `create-lesson.mdc` | @-mention | Drafts lesson briefs or **paired** core lessons (`{slug}.md` + `{slug}.v2.md`) inside programme folders |
 | `create-feature.mdc` | @-mention | Drafts feature specs to `requirements/features/` |
@@ -89,7 +89,7 @@ Cursor rules govern how AI behaves in this repository. Five rules are always on,
 | `create-blueprint.mdc` | @-mention | Maps user journeys as service blueprints to `docs/` |
 | `create-api-spec.mdc` | @-mention | Generates RESTful API specs for Maker-Checker endpoints |
 
-GitHub Copilot mirrors live in `.github/skills/` with matching `SKILL.md` files.
+GitHub Copilot mirrors live in `.github/skills/` with matching `SKILL.md` files. The **update-docs** skill points at `.cursor/rules/05-update-docs.mdc` as the single matrix source — do not duplicate the full matrix in the skill file.
 
 ---
 
@@ -217,16 +217,22 @@ Check lessons without touching Firestore (parsers + validation only):
 npm run validate-curriculum
 ```
 
+Before merging structural or doc-touching work, confirm living reference files still exist (registry in `scripts/check_reference_docs.js`, canonical list in `.cursor/rules/05-update-docs.mdc`):
+
+```bash
+npm run verify-reference-docs
+```
+
 **Firestore sync (curriculum):** Default path is **GitHub Actions** — secret `FIREBASE_SERVICE_ACCOUNT_JSON`, workflow runs on push to `main` when `requirements/content/programmes/**` changes (including PR merges). See **`docs/partner-curriculum-sync.md`**. For optional local runs: `.secrets/firebase-adminsdk.json` or `GOOGLE_APPLICATION_CREDENTIALS`; project ID from `.firebaserc`. Full detail: `scripts/README.md`.
 
-Example paired lesson (v1 + v2 markdown): `requirements/content/programmes/first-home-foundations/first-home-deposits-explained.md` and `first-home-deposits-explained.v2.md`.
+Example paired lessons (v1 + v2 markdown): `requirements/content/programmes/buying-your-first-home/first-home-deposits-explained.md` (+ `.v2.md`) and `how-to-start-building-a-deposit.md` (+ `.v2.md`).
 
 ### Project Configuration
 
 - **Firebase config:** `firebase.json` (functions source set to `functions/`)
 - **Environment:** `.firebaserc` (project aliases)
 - **Agent rules:** Edit agent behaviour directly in `functions/docs/` -- changes take effect on next deployment
-- **Root scripts:** `package.json` (curriculum sync)
+- **Root scripts:** `package.json` (curriculum sync, `validate-curriculum`, `verify-reference-docs`)
 
 ---
 
@@ -241,7 +247,8 @@ mulo-ai-backend/
 │   ├── CODEOWNERS                # Role-based access control
 │   ├── skills/                   # GitHub Copilot Agent Skills
 │   └── workflows/
-│       └── sync-curriculum.yml   # Push programmes/ on main → Firestore sync (needs repo secret)
+│       ├── sync-curriculum.yml   # Push programmes/ on main → Firestore sync (needs repo secret)
+│       └── verify-reference-docs.yml # PR/push: living reference files exist (see 05-update-docs.mdc)
 ├── docs/
 │   ├── CONTRIBUTING.md           # Branch / fork / PR workflow for collaborators
 │   ├── partner-curriculum-sync.md # PR to main → Action syncs programmes to Firestore

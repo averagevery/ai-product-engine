@@ -83,14 +83,16 @@ node scripts/sync_curriculum.js --force
 - Example:
   ```yaml
   ---
-  programmeName: First Home Foundations
+  programmeName: Buying your first home
   category: Mortgage
   persona: Sarah (First-Time Buyer)
-  estimatedTime: 10 mins
-  lessonCount: 1
+  estimatedTime: 8 mins
+  lessonCount: 2
   lessons:
     - slug: first-home-deposits-explained
       order: 1
+    - slug: how-to-start-building-a-deposit
+      order: 2
   ---
   ```
 
@@ -101,3 +103,13 @@ node scripts/sync_curriculum.js --force
 **V2 (`{slug}.v2.md`):** `templates/template-core-lesson-v2.md`
 - YAML frontmatter includes `lessonFormat: v2_interactive` and `screenCount: 5`
 - `## Question N:` headings with options as `- 0)` … `- 3)` and a `### learnMore` block per question
+
+## check_reference_docs.js
+
+Verifies that **living reference** files still exist on disk. The canonical list matches `.cursor/rules/05-update-docs.mdc` (Living Reference Pages) — keep both in sync when you add or remove a registry entry.
+
+```bash
+npm run verify-reference-docs
+```
+
+This does **not** validate that README or `llms.txt` *content* matches the repo; use the **Change-to-Doc Matrix** in `05-update-docs.mdc` before merge. CI runs this script on pull requests (see `.github/workflows/verify-reference-docs.yml`).
