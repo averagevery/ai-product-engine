@@ -29,7 +29,8 @@ Ask the user which type they need if unclear.
 3. Read `functions/docs/financial_standards.md` for the PISA financial pillars and topic boundaries.
 4. Read `functions/docs/lesson_guidelines.md` for v2_interactive structure rules and word limits.
 5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons` and `screens` collections).
-6. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
+6. Complete the **Internal QA Summary (not user-facing)** section in the template with concise notes for: Consumer Duty, compliance/no-advice checks, and PISA alignment.
+7. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
 
 ## Instructions -- Core Lesson (Option B)
 

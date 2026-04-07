@@ -24,7 +24,8 @@ Creates **one** markdown file in the programme folder: `{slug}.md`. It syncs to 
 3. Read `functions/docs/financial_standards.md` for the PISA financial pillars and topic boundaries.
 4. Read `functions/docs/lesson_guidelines.md` for v2_interactive structure, tone, and JSON output rules.
 5. Reference `requirements/features/core-system-architecture.md` for the Firestore schema (`user_lessons`, `lesson_requests`, `screens`).
-6. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
+6. Complete the template's **Internal QA Summary (not user-facing)** section covering Consumer Duty, compliance/no-advice checks, and PISA alignment.
+7. Save the completed document inside the relevant programme folder: `requirements/content/programmes/{programme-name}/`.
 
 ## Steps -- Core Lesson (Option B)
 
@@ -44,5 +45,5 @@ Every generated document must retain the AI Source Prompt block at the top, reco
 
 Follow `.cursor/rules/create-lesson.mdc` and `.cursor/rules/03-design-system.mdc` -- see `lesson_guidelines.md` for word limits (e.g. feedback banners 30 words).
 
-- Lottie motifs: approved motifs only; banned: `$`, red effects, currency iconography in animations.
+- No Lottie animations in v2_interactive lessons; banned visuals: `$`, red effects, currency iconography.
 - Strict UK English; FCA disclaimer on every lesson; no regulated financial advice.

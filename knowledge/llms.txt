@@ -62,7 +62,7 @@ A `programmes` collection stores programme metadata synced from `programme.md` Y
 ### templates/ -- Document Templates
 - templates/template-programme.md -- Programme metadata template (saved as `programme.md` inside a programme folder).
 - templates/template-core-lesson.md -- Hand-crafted core lesson template (YAML frontmatter + ## Question headings + nested learnMore).
-- templates/template-lesson.md -- Lesson editorial brief template (input for the AI Maker-Checker pipeline to generate `user_lessons`).
+- templates/template-lesson.md -- Lesson editorial brief template (v2_interactive, 5-question format; input for the AI Maker-Checker pipeline to generate `user_lessons`).
 - templates/template-feature.md -- App feature specification template.
 - templates/template-agent.md -- Agent behavioural rule document template (used by create-agent.mdc).
 - templates/template-service-blueprint.md -- Service blueprint template.
