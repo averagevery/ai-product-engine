@@ -4,17 +4,18 @@
 
 # Lesson Brief: [Lesson Name]
 
-> This is an **editorial brief** -- it defines what the lesson should teach and the editorial tone. The Creator Agent uses this brief to generate the full 8-11 screen lesson via the Maker-Checker pipeline. You do not need to write all screens here; provide the topic direction, sample content, and key learning points.
+> This is an **editorial brief** -- it defines what the lesson should teach and the editorial tone. The Creator Agent uses this brief to generate the full **5-question v2_interactive lesson** via the Maker-Checker pipeline. You do not need to write all questions here; provide the topic direction, misconceptions to challenge, and key learning points. For structure rules see `functions/docs/lesson_guidelines.md`.
 
 ## Lesson Metadata
 
 ```yaml
 category: [e.g., Savings, Debt, Mortgage, Pension, Investing]
-moduleName: [Parent programme name]
+moduleName: [Parent programme name -- maps to lesson_requests.moduleName in Firestore]
 lessonName: [Lesson name]
 lessonLevel: [Beginner / Intermediate / Expert]
-lessonTime: [e.g., 3 mins, 5 mins]
+lessonTime: 2 mins
 persona: [Target persona name from knowledge/personas.md]
+lessonFormat: v2_interactive
 ```
 
 ## Topic and Learning Objective
@@ -23,36 +24,67 @@ persona: [Target persona name from knowledge/personas.md]
 **Learning Objective:** [What the user should understand or be able to do after completing this lesson]
 **PISA Pillar:** [Which PISA financial literacy pillar this maps to -- see functions/docs/financial_standards.md]
 
+## Misconceptions to Challenge (5 required)
+
+Each of the 5 questions must challenge a **different** common misconception. List them here so the Creator Agent generates focused, non-overlapping questions.
+
+1. [Misconception the learner likely holds -- e.g., "You need twenty percent saved before any lender will look at you."]
+2. [A different misconception on the same broad topic]
+3. [...]
+4. [...]
+5. [...]
+
 ## Editorial Direction
 
-Describe the tone, angle, and approach for this lesson. The Creator Agent will use this as creative direction when generating the full screen set.
+Describe the tone, angle, and approach. The Creator Agent will use this as creative direction.
 
-* **Hook:** [How should the lesson open? e.g., "Start with a surprising stat about how many UK 25-year-olds don't know about the LISA penalty."]
-* **Core Concept:** [What is the single most important thing to teach? e.g., "The LISA has a 25% government bonus but a 25% penalty for non-qualifying withdrawals -- users must understand this is a net loss, not break-even."]
-* **Common Misconception:** [What do learners typically get wrong? e.g., "Many think the 25% penalty only removes the bonus -- in fact it removes 25% of the total including their own contributions."]
-* **Key Takeaways:** [2-3 bullet points the user should remember]
+* **Hook:** [How should question 1 open? e.g., "Challenge the assumption that deposit saving requires a huge salary."]
+* **Core Concept:** [The single most important idea the lesson teaches]
+* **Key Takeaways:** [2-3 bullet points the user should remember after all 5 questions]
 
 ## Sample Question
 
-Provide one example question to set the difficulty and style. The Creator Agent will generate additional questions.
+Provide one example to set the difficulty, style, and answer format. The Creator Agent will generate the remaining four.
 
-**Question:** [A multiple-choice question]
-- A) [Option A]
-- B) [Option B]
-- C) [Option C]
-- D) [Option D]
+**questionText:** [Max 20 words -- challenges one of the misconceptions above]
+- 0) [Option -- max 10 words]
+- 1) [Option -- max 10 words]
+- 2) [Option -- max 10 words]
+- 3) [Option -- max 10 words]
+**correctIndex:** [0, 1, 2, or 3]
+**Why:** [Brief explanation of why this is the single correct answer and the others are weaker]
 
-**Answer:** [Correct letter]
-**Why:** [Brief explanation of why this is the correct answer]
+> Only **one** option may be fully correct. Do not write two options that share the same verdict (e.g. two "False —" lines). Prefer a direct question over a true/false stem.
 
-## Lottie Suggestion
+## Learn More Hints (optional)
 
-**Motif:** [Approved motif: bank building, piggy bank, shield, coins, graduation cap, or growth chart]
+Suggest story characters, £ figures, or breakdown card ideas the Creator Agent can use when building the `learnMore` sections. These are suggestions, not requirements.
+
+* **Named UK character:** [e.g., Maya, 28, Leeds -- saving for a first flat]
+* **Key £ figure:** [e.g., £600k price cap on some supported routes]
+* **Breakdown card idea:** [e.g., comparison of smaller deposit sooner vs larger deposit later]
 
 ## Compliance
 
 **Disclaimer:** This lesson is general education and does not constitute financial advice.
 **FCA Check:** [ ] Content does not recommend specific products or providers
+
+## Internal QA Summary (not user-facing)
+
+Use this section for reviewer confidence only. It is **not** part of the customer-facing lesson output.
+
+### 1) Consumer Duty
+- **How considered:** [How the lesson supports informed decisions, avoids harm, and improves understanding for the target persona]
+- **How validated:** [Checks used by agent/reviewer to confirm fairness, clarity, and accessibility]
+
+### 2) Compliance / avoiding financial advice
+- **How considered:** [How wording stays educational and non-advisory; avoids product/provider recommendations]
+- **How validated:** [What was checked against FCA boundaries and internal compliance rules]
+
+### 3) PISA alignment
+- **PISA pillar(s) used:** [Financial knowledge / behaviour / attitudes context as relevant]
+- **How considered:** [How each misconception/question maps to the selected pillar(s)]
+- **How validated:** [How reviewer confirmed the lesson objective and questions align to the chosen pillar(s)]
 
 ## Notes
 

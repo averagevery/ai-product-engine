@@ -296,7 +296,7 @@ mulo-ai-backend/
 │   ├── template-agent.md         # Agent behavioural rule document template
 │   ├── template-core-lesson.md   # Core lesson template (v2_interactive)
 │   ├── template-feature.md
-│   ├── template-lesson.md
+│   ├── template-lesson.md        # Editorial brief for AI-generated lessons (v2_interactive)
 │   ├── template-programme.md
 │   └── template-service-blueprint.md
 ├── .cursorignore
